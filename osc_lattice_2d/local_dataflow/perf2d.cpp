@@ -32,6 +32,7 @@ using hpx::async;
 using hpx::util::unwrap;
 
 using boost::numeric::odeint::symplectic_rkn_sb3a_mclachlan;
+using boost::numeric::odeint::integrate_n_steps;
 
 typedef std::vector< double > dvec;
 typedef std::vector< dvec > dvecvec;
@@ -101,16 +102,9 @@ int hpx_main(boost::program_options::variables_map& vm)
 
         hpx::util::high_resolution_timer timer;
 
-        stepper_type stepper;
-
-        for( size_t t=0 ; t<steps ; ++t )
-        {
-            auto x = std::make_pair( boost::ref(q) , boost::ref(p) );
-            stepper.do_step( system_2d , 
-                             x ,
-                             t*dt , 
-                             dt );
-       }
+        integrate_n_steps( stepper_type() , system_2d , 
+                           std::make_pair( boost::ref(q) , boost::ref(p) ) ,
+                           0.0 , dt , steps );
 
         //hpx::cout << "dataflow generation ready\n" << hpx::flush;
 

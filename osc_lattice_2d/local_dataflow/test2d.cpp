@@ -173,31 +173,34 @@ int hpx_main(boost::program_options::variables_map& vm)
 
     hpx::util::high_resolution_timer timer;
 
-    stepper_type stepper;
+    integrate_n_steps( stepper_type() , system_2d , 
+                       std::make_pair( boost::ref(q_in) , boost::ref(p_in) ) ,
+                       0.0 , dt , steps );
 
-    for( size_t t=0 ; t<steps ; ++t )
-    {
-        auto in = std::make_pair( boost::ref(q_in) , boost::ref(p_in) );
-        //auto out = std::make_pair( boost::ref(q_out) , boost::ref(p_out) );
-        stepper.do_step( system_2d , 
-                         //trivial_sys ,
-                         in ,
-                         t*dt , 
-                         //                         out , 
-                         dt );
+    // stepper_type stepper;
+    // for( size_t t=0 ; t<steps ; ++t )
+    // {
+    //     auto in = std::make_pair( boost::ref(q_in) , boost::ref(p_in) );
+    //     //auto out = std::make_pair( boost::ref(q_out) , boost::ref(p_out) );
+    //     stepper.do_step( system_2d , 
+    //                      //trivial_sys ,
+    //                      in ,
+    //                      t*dt , 
+    //                      //                         out , 
+    //                      dt );
 
-        // if( do_observation && ((t%10) == 0) )
-        // {
-        //     obs( q_out , p_out , t*dt );
-        // }
+    //     // if( do_observation && ((t%10) == 0) )
+    //     // {
+    //     //     obs( q_out , p_out , t*dt );
+    //     // }
 
-        //state_swap( q_in , q_out );
-        //state_swap( p_in , p_out );
+    //     //state_swap( q_in , q_out );
+    //     //state_swap( p_in , p_out );
 
-        // state_copy( q_out , q_in );
-        // state_copy( p_out , p_in );
+    //     // state_copy( q_out , q_in );
+    //     // state_copy( p_out , p_in );
 
-    }
+    // }
 
     hpx::cout << "dataflow generation ready\n" << hpx::flush;
 
