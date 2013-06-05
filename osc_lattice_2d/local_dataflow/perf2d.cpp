@@ -63,7 +63,7 @@ int hpx_main(boost::program_options::variables_map& vm)
     double avrg_time = 0.0;
     double min_time = 1000000.0;
 
-    for( size_t n=0 ; n<10 ; ++n )
+    for( size_t n=0 ; n<12 ; ++n )
     {
 
         dvecvec p_init( N1 , dvec( N2 , 0.0 ) );
@@ -113,8 +113,11 @@ int hpx_main(boost::program_options::variables_map& vm)
 
         double run_time = timer.elapsed();
 
-        avrg_time += run_time;
-        min_time = std::min( run_time , min_time );
+        if( n > 1 )
+        {
+            avrg_time += run_time;
+            min_time = std::min( run_time , min_time );
+        }
 
     }
 

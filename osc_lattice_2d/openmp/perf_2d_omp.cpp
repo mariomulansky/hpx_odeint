@@ -61,7 +61,7 @@ int main( int argc , char* argv[] )
     double avrg_time = 0.0;
     double min_time = 1000000.0;
         
-    for( size_t n=0 ; n<10 ; ++n )
+    for( size_t n=0 ; n<12 ; ++n )
     {
 
         lattice2d system( KAPPA , LAMBDA , beta );
@@ -99,8 +99,11 @@ int main( int argc , char* argv[] )
 
         double run_time = static_cast<double>(timer.elapsed().wall)/(1000*1000*1000);
 
-        min_time = std::min( min_time , run_time );
-        avrg_time += run_time;
+        if( n > 1 )
+        {
+            min_time = std::min( min_time , run_time );
+            avrg_time += run_time;
+        }
 
         std::clog << "G: " << block_size << ", run " << n << ": " << run_time << std::endl;
 

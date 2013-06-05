@@ -65,7 +65,7 @@ int hpx_main(boost::program_options::variables_map& vm)
     double min_time = 1000000.0;
     double mean_time = 0.0;
     
-    for( size_t n=0 ; n<10 ; ++n )
+    for( size_t n=0 ; n<12 ; ++n )
     {
 
         dvecvec p_init( N1 , dvec( N2 , 0.0 ) );
@@ -135,8 +135,11 @@ int hpx_main(boost::program_options::variables_map& vm)
 
         std::clog << "run " << n << ": " << run_time << std::endl;
 
-        min_time = std::min( min_time , run_time );
-        mean_time += run_time;
+        if( n > 1 )
+        {
+            min_time = std::min( min_time , run_time );
+            mean_time += run_time;
+        }
     }
     
     hpx::cout << (boost::format("%d\t%f\t%f\n") % G % (min_time) % (mean_time/10)) << hpx::flush;
