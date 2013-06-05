@@ -14,6 +14,8 @@
 #include <hpx/lcos/async.hpp>
 #include <hpx/include/iostreams.hpp>
 
+#include "hpx_odeint_actions.hpp"
+
 using hpx::lcos::dataflow;
 using hpx::lcos::dataflow_base;
 using hpx::find_here;
@@ -220,7 +222,7 @@ shared_vecvec system_last_block( shared_vecvec q , const dvec q_u , shared_vecve
 
 HPX_PLAIN_ACTION(system_last_block, system_last_block_action);
 
-void system_2d( const state_type &q , state_type &dpdt )
+void system_2d( state_type &q , state_type &dpdt )
 {
     // works on shared data, but coupling data is provided as copy
     const size_t N = q.size();
@@ -241,13 +243,11 @@ void system_2d( const state_type &q , state_type &dpdt )
                                                       dataflow< last_row_action >( find_here() , q[N-2] ) , 
                                                       dpdt[N-1] , N-1);
 
-    // coupling synchronization step
-    // dpdt[0] = dataflow< sys_sync1_action >( fing_here() , dpdt_[0] , dpdt_[1] );
-    // for( size_t i=1 ; i<N-1 ; i++ )
-    // {
-    //     dpdt[i] = dataflow< sys_sync2_action >( find_here() , dpdt_[i] , dpdt_[i] , q[i+1] , dpdt[i] );
-    // }
-    // dpdt_[N-1] = dataflow< system_last_block_action >( find_here() , q[N-1] , q[N-2] , dpdt[N-1] );
+    // synchronize q with dpdt to make sure q doesnt get changed while dpdt is not yet calulated
+    for( size_t i=0 ; i<N ; i++ )
+    {
+        q[i] = dataflow< sync1_action< shared_vec , shared_vec > >( find_here() , q[i] , dpdt[i] );
+    }
 
 }
 

@@ -25,7 +25,7 @@ namespace hpx_odeint_actions {
 
     template< typename S , typename Operation >
     struct operation2d_3_action
-        : hpx::actions::make_action<
+        : hpx::actions::make_direct_action<
         S (*)( S , 
                const S& , 
                const S& , 
@@ -51,10 +51,6 @@ struct dataflow_shared_algebra_2d
     void for_each3( S &s1 , const S &s2 , const S &s3 , Op op )
     {
         const size_t N = boost::size( s1 );
-        // std::cout << "dataflow sizes: " << boost::size( s1 ) << " , ";
-        // std::cout << boost::size( s2 ) << " , " << boost::size( s3 ) << std::endl;
-        // std::cout << s1[0].get_future().get()->size() << " , " << s2[0].get_future().get()->size() << " , " << s3[0].get_future().get()->size() << std::endl;
-        // std::cout << std::flush;
         for( size_t i=0 ; i<N ; ++i )
         {
             typedef std::vector< double > dvec;

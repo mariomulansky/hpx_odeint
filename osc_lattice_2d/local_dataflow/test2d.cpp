@@ -178,12 +178,12 @@ int hpx_main(boost::program_options::variables_map& vm)
     for( size_t t=0 ; t<steps ; ++t )
     {
         auto in = std::make_pair( boost::ref(q_in) , boost::ref(p_in) );
-        auto out = std::make_pair( boost::ref(q_out) , boost::ref(p_out) );
+        //auto out = std::make_pair( boost::ref(q_out) , boost::ref(p_out) );
         stepper.do_step( system_2d , 
                          //trivial_sys ,
                          in ,
                          t*dt , 
-                         out , 
+                         //                         out , 
                          dt );
 
         // if( do_observation && ((t%10) == 0) )
@@ -191,8 +191,8 @@ int hpx_main(boost::program_options::variables_map& vm)
         //     obs( q_out , p_out , t*dt );
         // }
 
-        state_swap( q_in , q_out );
-        state_swap( p_in , p_out );
+        //state_swap( q_in , q_out );
+        //state_swap( p_in , p_out );
 
         // state_copy( q_out , q_in );
         // state_copy( p_out , p_in );

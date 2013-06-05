@@ -253,26 +253,46 @@ void system_2d( state_type &q , state_type &dpdt )
         { return (*v)[v->size()-1]; }), 
                                     q[N-2] ) , 
                           dpdt[N-1] );
-    
-    //hpx::cout << "system call finished\n" << hpx::flush;
 
-    /*
-    // coupling synchronization step
-    dpdt[0] = dataflow( hpx::launch::sync , 
-                        unwrap([]( shared_vec x , shared_vec sync ){ return x; } ) , 
-                        dpdt[0] , dpdt[1] );
-
+    // synchronization to make sure q doesn't get changed while dpdt isn't ready
     for( size_t i=1 ; i<N-1 ; i++ )
     {
-        dpdt[i] = dataflow( hpx::launch::sync , 
-                            unwrap([]( shared_vec x , shared_vec sync1 , shared_vec sync2 )
-            { return x; } ) , 
-                            dpdt[i] , dpdt[i-1] , dpdt[i+1] );
+        q[i] = dataflow( hpx::launch::async , 
+                         unwrap([]( shared_vec x , shared_vec sync){ return x; } ) ,
+                         q[i] , 
+                         dpdt[i] );
     }
-    dpdt[N-1] = dataflow( hpx::launch::sync , 
-                           unwrap([]( shared_vec x , shared_vec sync ){ return x; } ) , 
-                           dpdt[N-1] , dpdt[N-2] );
-    */
+}
+
+void system_2d_gb( state_type &q , state_type &dpdt )
+{
+    // works on shared data, but coupling data is provided as copy
+    const size_t N = q.size();
+
+    // first row
+    dpdt[0] = dataflow( hpx::launch::async , unwrap(system_first_block()) , q[0] , 
+                        dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+        { return (*v)[0]; }) , q[1] ) , 
+                        dpdt[0] );
+    // middle rows
+    for( size_t i=1 ; i<N-1 ; i++ )
+    {
+        dpdt[i] = dataflow( hpx::launch::async , unwrap(system_center_block()) , q[i] , 
+                            dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+            { return (*v)[v->size()-1]; }) ,
+                                      q[i-1] ) , 
+                            dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+            { return (*v)[0]; }) , q[i+1] ) ,
+                            dpdt[i] );
+    }
+    dpdt[N-1] = dataflow( hpx::launch::async , unwrap(system_last_block()) , q[N-1] , 
+                          dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+        { return (*v)[v->size()-1]; }), 
+                                    q[N-2] ) , 
+                          dpdt[N-1] );
+    // global barrier
+    wait( dpdt );
+
 }
 
 

@@ -100,7 +100,7 @@ T1 sync1( T1 x , T2 sync )
 
 template< typename T1 , typename T2 >
 struct sync1_action
-    : hpx::actions::make_action<
+    : hpx::actions::make_direct_action<
     T1 (*)( T1 , T2 ) , 
       &sync1<T1,T2>, 
       sync1_action<T1,T2> >

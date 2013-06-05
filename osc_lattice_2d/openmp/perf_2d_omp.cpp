@@ -67,7 +67,7 @@ int main( int argc , char* argv[] )
         lattice2d system( KAPPA , LAMBDA , beta );
 
         // initialize
-        state_type p_init( N1 , dvec( N2 , 0.0 ) );
+        state_type p_init( N1 , dvec( N2 ) );
     
         //fully random
         for( size_t i=0 ; i<N1 ; ++i )
@@ -81,42 +81,18 @@ int main( int argc , char* argv[] )
         state_type q( N1 );
         state_type p( N1 );
 
-        #pragma omp parallel for
+#pragma omp parallel for schedule( runtime )
         for( size_t i=0 ; i<N1 ; i++ )
         {
             q[i] = dvec( N2 , 0.0 );
             p[i] = p_init[i];
         }
 
-        // std::clog << "# Initial energy: " << system.energy( q , p ) << " (fully random)" << std::endl;
-
-        //partly random
-        // for( size_t i=N1/2-init_length/2 ; i<N1/2+init_length/2 ; ++i )
-        // {
-        //     std::uniform_real_distribution<double> distribution( 0.0 );
-        //     std::mt19937 engine( i ); // Mersenne twister MT19937
-        //     auto generator = std::bind( distribution , engine );
-        //     std::generate( p[i].begin()+N2/2-init_length/2 ,
-        //                    p[i].begin()+N2/2+init_length/2 ,
-        //                    generator );
-        // }
-
-        // for( int i=0 ; i<N1 ; ++i )
-        // {
-        //     for( int j=0 ; j<N2 ; ++j )
-        //     {
-        //         std::cout << q[i][j] << "," << p[i][j] << '\t';
-        //     }
-        //     std::cout << std::endl;
-        // }
-
-        spreading_observer obs( KAPPA , LAMBDA , beta );
-
         //std::cout << "# Initial energy: " << system.energy( q , p ) << std::endl;
     
         cpu_timer timer;
 
-        integrate_n_steps( stepper_type( nested_omp_algebra<range_algebra>() ) , 
+        integrate_n_steps( stepper_type() , 
                            system , 
                            std::make_pair( std::ref(q) , std::ref(p) ) , 
                            0.0 , dt , steps );
@@ -128,9 +104,6 @@ int main( int argc , char* argv[] )
 
         std::clog << "G: " << block_size << ", run " << n << ": " << run_time << std::endl;
 
-        // std::ref(obs) );
-        // std::clog << "Final energy: " << system.energy( q , p ) << std::endl;
-    
     }
 
     std::cout << block_size << '\t' << min_time << '\t' << avrg_time/(10) << std::endl;

@@ -48,59 +48,6 @@ typedef symplectic_rkn_sb3a_mclachlan< state_type ,
                                        dataflow_shared_algebra_2d ,
                                        dataflow_operations > stepper_type;
 
-
-shared_vec sync_identity( shared_vec x , shared_vec sync1 , shared_vec sync2 , shared_vec sync3 )
-{
-    return x;
-}
-
-HPX_PLAIN_DIRECT_ACTION( sync_identity , sync_identity_action )
-
-shared_vec sync_identity2( shared_vec x , shared_vec sync1 )
-{
-    return x;
-}
-
-HPX_PLAIN_DIRECT_ACTION( sync_identity2 , sync_identity2_action )
-
-// syncronized swap emulating nearest neighbor coupling
-// void synchronized_swap( state_type &x_in , state_type &x_out )
-// {
-//     const size_t N = x_in.size();
-//     dataflow_base< shared_vec > x_0 = x_out[0];
-//     dataflow_base< shared_vec > x_left = x_out[0];
-//     dataflow_base< shared_vec > x_tmp = dataflow< sync_identity_action >( find_here() , x_in[0] , 
-//                                                                           x_out[0] , x_out[N-1] , x_out[1] );
-//     x_in[0] = dataflow< sync_identity2_action >( find_here() , x_out[0] , x_tmp );
-//     x_out[0] = x_tmp;
-//     for( size_t n=1 ; n<N-1 ; ++n )
-//     {
-//         x_tmp = dataflow< sync_identity_action >( find_here() , x_in[n] , 
-//                                               x_out[n] , x_left , x_out[n+1] );
-//         x_left = x_out[n];
-//         x_in[n] = dataflow< sync_identity2_action >( find_here() , x_out[n] , x_tmp );
-//         x_out[n] = x_tmp;
-//     }
-//     x_tmp = dataflow< sync_identity_action >( find_here() , x_in[N-1] , 
-//                                           x_out[N-1] , x_left , x_0 );
-//     x_in[N-1] = dataflow< sync_identity2_action >( find_here() , x_out[N-1] , x_tmp );
-//     x_out[N-1] = x_tmp;
-// }
-
-void synchronized_swap( state_type &x_in , state_type &x_out )
-{
-    const size_t N = x_in.size();
-    for( size_t n=0 ; n<N ; ++n )
-    {
-        dataflow_base< shared_vec > x_tmp = dataflow< sync_identity2_action >( find_here() , 
-                                                                               x_in[n] , 
-                                                                               x_out[n] );
-        x_in[n] = dataflow< sync_identity2_action >( find_here() , x_out[n] , x_tmp );
-        x_out[n] = dataflow< sync_identity2_action >( find_here() , x_tmp , x_out[n] );
-    }
-}
-
-
 int hpx_main(boost::program_options::variables_map& vm)
 {
 
@@ -140,43 +87,30 @@ int hpx_main(boost::program_options::variables_map& vm)
                                std::ref(generator) );
         }
 
-        state_type q_in( M );
-        state_type p_in( M );
-        state_type q_out( M );
-        state_type p_out( M );
+        state_type q( M );
+        state_type p( M );
 
         for( size_t i=0 ; i<M ; ++i )
         {
-            q_in[i] = dataflow< initialize_2d_action >( find_here() , 
-                                                        std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
-                                                        G ,
-                                                        N2 ,
-                                                        0.0 );
-            p_in[i] = dataflow< initialize_2d_from_data_action >( find_here() , 
-                                                                  std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
-                                                                  p_init ,
-                                                                  i*G ,
-                                                                  G
-                                                                  );
-            q_out[i] = dataflow< initialize_2d_action >( find_here() , 
-                                                         std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
-                                                         G ,
-                                                         N2 ,
-                                                         0.0 );
-            p_out[i] = dataflow< initialize_2d_action >( find_here() , 
-                                                         std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
-                                                         G ,
-                                                         N2 ,
-                                                         0.0 );
-
+            q[i] = dataflow< initialize_2d_action >( find_here() , 
+                                                     std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
+                                                     G ,
+                                                     N2 ,
+                                                     0.0 );
+            p[i] = dataflow< initialize_2d_from_data_action >( find_here() , 
+                                                               std::allocate_shared< dvecvec >( std::allocator<dvecvec>() ) ,
+                                                               p_init ,
+                                                               i*G ,
+                                                               G
+                                                               );
         }
 
         std::vector< future<shared_vec> > futures_q( M );
         std::vector< future<shared_vec> > futures_p( M );
         for( size_t i=0 ; i<M ; ++i )
         {
-            futures_q[i] = q_in[i].get_future();
-            futures_p[i] = p_in[i].get_future();
+            futures_q[i] = q[i].get_future();
+            futures_p[i] = p[i].get_future();
         }
 
         wait( futures_q );
@@ -189,22 +123,18 @@ int hpx_main(boost::program_options::variables_map& vm)
 
         for( size_t t=0 ; t<steps ; ++t )
         {
-            auto in = std::make_pair( boost::ref(q_in) , boost::ref(p_in) );
-            auto out = std::make_pair( boost::ref(q_out) , boost::ref(p_out) );
+            auto x = std::make_pair( boost::ref(q) , boost::ref(p) );
             stepper.do_step( system_2d , 
-                             in ,
+                             x ,
                              t*dt , 
-                             out , 
                              dt );
 
-            synchronized_swap( q_in , q_out );
-            synchronized_swap( p_in , p_out );
         }
 
         for( size_t i=0 ; i<M ; ++i )
         {
-            futures_q[i] = q_in[i].get_future();
-            futures_p[i] = p_in[i].get_future();
+            futures_q[i] = q[i].get_future();
+            futures_p[i] = p[i].get_future();
         }
         wait( futures_q );
         wait( futures_p );
