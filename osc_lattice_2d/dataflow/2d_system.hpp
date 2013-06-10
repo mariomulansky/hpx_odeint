@@ -242,13 +242,13 @@ void system_2d( state_type &q , state_type &dpdt )
     dpdt[N-1] = dataflow< system_last_block_action >( find_here() , q[N-1] , 
                                                       dataflow< last_row_action >( find_here() , q[N-2] ) , 
                                                       dpdt[N-1] , N-1);
-
+    /*
     // synchronize q with dpdt to make sure q doesnt get changed while dpdt is not yet calulated
     for( size_t i=0 ; i<N ; i++ )
     {
         q[i] = dataflow< sync1_action< shared_vec , shared_vec > >( find_here() , q[i] , dpdt[i] );
     }
-
+    */
 }
 
 
