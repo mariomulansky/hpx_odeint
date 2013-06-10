@@ -21,7 +21,7 @@
 #include "local_dataflow_algebra.hpp"
 #include "local_dataflow_shared_operations.hpp"
 #include "initialize.hpp"
-#include "2d_system.hpp"
+#include "2d_system_2.hpp"
 
 using hpx::lcos::future;
 using hpx::find_here;

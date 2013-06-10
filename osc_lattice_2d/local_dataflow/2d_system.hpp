@@ -254,6 +254,7 @@ void system_2d( state_type &q , state_type &dpdt )
                                     q[N-2] ) , 
                           dpdt[N-1] );
 
+    /*
     // synchronization to make sure q doesn't get changed while dpdt isn't ready
     for( size_t i=1 ; i<N-1 ; i++ )
     {
@@ -262,6 +263,7 @@ void system_2d( state_type &q , state_type &dpdt )
                          q[i] , 
                          dpdt[i] );
     }
+    */
 }
 
 void system_2d_gb( state_type &q , state_type &dpdt )

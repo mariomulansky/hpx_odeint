@@ -92,9 +92,11 @@ int hpx_main(boost::program_options::variables_map& vm)
         for( size_t i=0 ; i<M ; ++i )
         {
             q[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
-            q[i] = dataflow( unwrap(initialize_zero( G , N2 )) , q[i] );
+            q[i] = dataflow( hpx::launch::async ,
+                             unwrap(initialize_zero( G , N2 )) , q[i] );
             p[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
-            p[i] = dataflow( unwrap(initialize_copy( p_init , i*G , G )) , p[i] );
+            p[i] = dataflow( hpx::launch::async ,
+                             unwrap(initialize_copy( p_init , i*G , G )) , p[i] );
         }
 
         wait( q );
@@ -118,6 +120,8 @@ int hpx_main(boost::program_options::variables_map& vm)
             avrg_time += run_time;
             min_time = std::min( run_time , min_time );
         }
+
+        std::clog << G << ", run: " << n << " run time: " << run_time << std::endl;
 
     }
 
