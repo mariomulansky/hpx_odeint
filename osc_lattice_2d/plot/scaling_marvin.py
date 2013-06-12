@@ -39,6 +39,17 @@ for N in sizes:
     ylabel( "Speedup" )
     legend( loc="upper left" )
 
-    axis([1.5,16.5,0,14])
+    axis([1.5,16.5,1,14])
+
+    figure()
+    plot( threads , rt_omp , 'o-' , label="OMP" )
+    plot( threads , rt_df , 'o-' , label="HPX df" )
+    plot( threads , rt_ldf , 'o-' , label="HPX ldf" )
+    plot( threads , rt_ldfgb , 'o-k' , label="HPX ldf gb" )
+
+    title("System Size %dx%d" % (N,N))
+    xlabel( "Threads" )
+    ylabel( "Run Time (s)" )
+    legend( loc="upper right" )
 
 show()
