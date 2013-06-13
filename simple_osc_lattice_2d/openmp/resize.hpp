@@ -14,11 +14,13 @@ struct resize_impl< state_type , state_type >
 {
     static void resize( state_type &out , const state_type &in )
     {
-        out.resize( boost::size( in ) );
-        typename state_type::iterator begin1 = boost::begin( out );
-        typename state_type::const_iterator begin2 = boost::begin( in );
-        while( begin1 != boost::end( out ) )
-            (*begin1++).resize( boost::size( *begin2++ ) );
+        size_t N = boost::size( in );
+        out.resize( N );
+#pragma omp parallel for schedule( runtime )
+        for( size_t n=0 ; n<N ; ++n )
+        {
+            out[n].resize( boost::size( in[n] ) );
+        }
     }
 };
 
