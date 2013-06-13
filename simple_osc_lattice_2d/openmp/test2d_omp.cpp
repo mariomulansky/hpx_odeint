@@ -61,8 +61,7 @@ int main( int argc , char* argv[] )
     omp_set_schedule( omp_sched_static , block_size );
 
     // initialize
-    state_type q( N1 , dvec( N2 , 0.0 ) );
-    state_type p( N1 , dvec( N2 , 0.0 ) );
+    state_type p_init( N1 , dvec( N2 , 0.0 ) );
 
     // fully random
     for( size_t i=0 ; i<N1 ; ++i )
@@ -70,29 +69,18 @@ int main( int argc , char* argv[] )
         std::uniform_real_distribution<double> distribution( 0.0 );
         std::mt19937 engine( i ); // Mersenne twister MT19937
         auto generator = std::bind( distribution , engine );
-        std::generate( p[i].begin() , p[i].end() , generator );
+        std::generate( p_init[i].begin() , p_init[i].end() , generator );
     }
 
-    //partly random
-    // for( size_t i=N1/2-init_length/2 ; i<N1/2+init_length/2 ; ++i )
-    // {
-    //     std::uniform_real_distribution<double> distribution( 0.0 );
-    //     std::mt19937 engine( i ); // Mersenne twister MT19937
-    //     auto generator = std::bind( distribution , engine );
-    //     std::generate( p[i].begin()+N2/2-init_length/2 ,
-    //                    p[i].begin()+N2/2+init_length/2 ,
-    //                    generator );
-    // }
+    state_type q( N1 );
+    state_type p( N1 );
 
-    // for( int i=0 ; i<N1 ; ++i )
-    // {
-    //     for( int j=0 ; j<N2 ; ++j )
-    //     {
-    //         std::cout << q[i][j] << "," << p[i][j] << '\t';
-    //     }
-    //     std::cout << std::endl;
-    // }
-
+#pragma omp parallel for schedule( runtime )
+    for( size_t i=0 ; i<N1 ; i++ )
+    {
+        q[i] = dvec( N2 , 0.0 );
+        p[i] = p_init[i];
+    }
 
     lattice2d<KAPPA,LAMBDA> system( beta );
     spreading_observer<KAPPA,LAMBDA> obs( beta );
