@@ -49,11 +49,11 @@ int main( int argc , char* argv[] )
     if( argc > 3 )
         block_size = atoi( argv[3] );
     if( argc > 4 )
-        init_length = atoi( argv[4] );    
+        steps = atoi( argv[4] );
     if( argc > 5 )
-        steps = atoi( argv[5] );
+        dt = atof( argv[5] );
     if( argc > 6 )
-        dt = atof( argv[6] );
+        init_length = atoi( argv[5] );    
 
     std::cout << "Size: " << N1 << "x" << N2 << " with " << block_size << " rows per thread" << std::endl;
 
@@ -64,25 +64,25 @@ int main( int argc , char* argv[] )
     state_type q( N1 , dvec( N2 , 0.0 ) );
     state_type p( N1 , dvec( N2 , 0.0 ) );
 
-    //fully random
-    // for( size_t i=0 ; i<N1 ; ++i )
-    // {
-    //     std::uniform_real_distribution<double> distribution( 0.0 );
-    //     std::mt19937 engine( i ); // Mersenne twister MT19937
-    //     auto generator = std::bind( distribution , engine );
-    //     std::generate( p[i].begin() , p[i].end() , generator );
-    // }
-
-    //partly random
-    for( size_t i=N1/2-init_length/2 ; i<N1/2+init_length/2 ; ++i )
+    // fully random
+    for( size_t i=0 ; i<N1 ; ++i )
     {
         std::uniform_real_distribution<double> distribution( 0.0 );
         std::mt19937 engine( i ); // Mersenne twister MT19937
         auto generator = std::bind( distribution , engine );
-        std::generate( p[i].begin()+N2/2-init_length/2 ,
-                       p[i].begin()+N2/2+init_length/2 ,
-                       generator );
+        std::generate( p[i].begin() , p[i].end() , generator );
     }
+
+    //partly random
+    // for( size_t i=N1/2-init_length/2 ; i<N1/2+init_length/2 ; ++i )
+    // {
+    //     std::uniform_real_distribution<double> distribution( 0.0 );
+    //     std::mt19937 engine( i ); // Mersenne twister MT19937
+    //     auto generator = std::bind( distribution , engine );
+    //     std::generate( p[i].begin()+N2/2-init_length/2 ,
+    //                    p[i].begin()+N2/2+init_length/2 ,
+    //                    generator );
+    // }
 
     // for( int i=0 ; i<N1 ; ++i )
     // {
