@@ -228,35 +228,39 @@ struct system_2d
                             dpdt[0] );
         // middle rows
         for( size_t i=1 ; i<N-1 ; i++ )
-            {
-                dpdt[i] = dataflow( hpx::launch::async , 
-                                    unwrap(system_center_block<Kappa,Lambda>()) , 
-                                    q[i] , 
-                                    dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
-                    { return &((*v)[v->size()-1]); }) ,
-                                              q[i-1] ) , 
-                                    dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
-                    { return &((*v)[0]); }) , q[i+1] ) ,
-                                    dpdt[i] );
-            }
+        {
+            dpdt[i] = dataflow( hpx::launch::async , 
+                                 unwrap(system_center_block<Kappa,Lambda>()) , 
+                                 q[i] , 
+                                 dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+                { return &((*v)[v->size()-1]); }) ,
+                                           q[i-1] ) , 
+                                 dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+                { return &((*v)[0]); }) , q[i+1] ) ,
+                                 dpdt[i] );
+        }
         dpdt[N-1] = dataflow( hpx::launch::async , 
-                              unwrap(system_last_block<Kappa,Lambda>()) , 
-                              q[N-1] , 
-                              dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
+                               unwrap(system_last_block<Kappa,Lambda>()) , 
+                               q[N-1] , 
+                               dataflow( hpx::launch::sync , unwrap([](shared_vecvec v) 
             { return &((*v)[v->size()-1]); }), 
-                                        q[N-2] ) , 
-                              dpdt[N-1] );
-
+                                         q[N-2] ) , 
+                               dpdt[N-1] );
         /*
         // synchronization to make sure q doesn't get changed while dpdt isn't ready
+        dpdt[0] = dataflow( hpx::launch::sync ,
+                            unwrap([]( shared_vec x , shared_vec sync ){ return x; }) ,
+                            dpdt_[0] , dpdt_[1] );
         for( size_t i=1 ; i<N-1 ; i++ )
         {
-        q[i] = dataflow( hpx::launch::async , 
-        unwrap([]( shared_vec x , shared_vec sync){ return x; } ) ,
-        q[i] , 
-        dpdt[i] );
+            dpdt[i] = dataflow( hpx::launch::sync , 
+                                unwrap([]( shared_vec x , shared_vec sync1 , shared_vec sync2 ){ return x; } ) ,
+                                dpdt_[i] , dpdt_[i-1] , dpdt_[i+1] );
         }
-    */
+        dpdt[N-1] = dataflow( hpx::launch::sync ,
+                              unwrap([]( shared_vec x , shared_vec sync ){ return x; }) ,
+                              dpdt_[N-1] , dpdt_[N-2] );
+        */
     }
 
 

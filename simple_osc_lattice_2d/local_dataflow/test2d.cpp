@@ -21,7 +21,7 @@
 #include "local_dataflow_algebra.hpp"
 #include "local_dataflow_shared_operations.hpp"
 #include "initialize.hpp"
-#include "2d_system.hpp"
+#include "2d_system_2.hpp"
 
 using hpx::lcos::future;
 using hpx::find_here;
@@ -92,10 +92,10 @@ int hpx_main(boost::program_options::variables_map& vm)
 
     for( size_t i=0 ; i<M ; ++i )
     {
-        q[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
-        q[i] = dataflow( hpx::launch::async , unwrap(initialize_zero( G , N2 )) , q[i] );
-        p[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
-        p[i] = dataflow( hpx::launch::async , unwrap(initialize_copy( p_init , i*G , G )) , p[i] );
+        //q[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
+        q[i] = dataflow( hpx::launch::async , unwrap(initialize_zero( G , N2 )) , make_ready_future( 1 ) );
+        //p[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
+        p[i] = dataflow( hpx::launch::async , unwrap(initialize_copy( p_init , i*G , G )) , make_ready_future( 1 ) );
     }
 
     wait( q );

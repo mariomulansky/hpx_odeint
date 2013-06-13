@@ -16,8 +16,9 @@ struct initialize_zero
         : m_N1( N1 ) , m_N2( N2 )
     { }
 
-    shared_vec operator()( shared_vec v ) const
+    shared_vec operator()( int ) const
     {
+        shared_vec v = std::allocate_shared<dvecvec>( std::allocator<dvecvec>() );
         //hpx::cout << "initializing vector with zero ...\n" << hpx::flush;
         v->resize( m_N1 );
         for( size_t n=0 ; n<m_N1 ; ++n )
@@ -34,16 +35,17 @@ struct initialize_zero
 struct initialize_copy
 {
     //const dvecvec &m_data; // why no reference here?
-    const dvecvec m_data;
+    const dvecvec &m_data;
     const size_t m_index;
     const size_t m_len;
 
-    initialize_copy( const dvecvec data , const size_t index , const size_t len )
+    initialize_copy( const dvecvec &data , const size_t index , const size_t len )
         : m_data( data ) , m_index( index ) , m_len( len )
     { }
 
-    shared_vec operator()( shared_vec v ) const
+    shared_vec operator()( int ) const
     {
+        shared_vec v = std::allocate_shared<dvecvec>( std::allocator<dvecvec>() );
         //hpx::cout << boost::format("initializing vector from data at index %d ...\n") % m_index << hpx::flush;
         v->resize( m_len );
         for( size_t n=0 ; n<m_len ; ++n )
