@@ -57,12 +57,15 @@ struct osc_chain {
 #ifndef NO_OMP
 #pragma omp parallel for firstprivate( coupling_lr , last_i ) schedule(runtime)
 #endif	
-        for( int i=0 ; i<N ; ++i )
+        for( int i=0 ; i<N-1 ; ++i )
         {
             // non-continuous execution
             if( i != (last_i+1) )
             {
-                coupling_lr = signed_pow( q[i-1]-q[i] , m_lam-1 );
+                if( i>0 )
+                    coupling_lr = signed_pow( q[i-1]-q[i] , m_lam-1 );
+                else
+                    coupling_lr = 0.0;
             }
             dpdt[i] = -signed_pow( q[i] , m_kap-1 )
                 + coupling_lr;
@@ -70,6 +73,8 @@ struct osc_chain {
             dpdt[i] -= coupling_lr;
             last_i = i;
         }
+        dpdt[N-1] = -signed_pow( q[i] , m_kap-1 )
+            + coupling_lr;
     }
 
     template< class StateIn >
