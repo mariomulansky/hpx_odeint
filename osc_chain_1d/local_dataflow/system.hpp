@@ -13,12 +13,12 @@
 #include <hpx/lcos/future.hpp>
 #include <hpx/lcos/local/dataflow.hpp>
 #include <hpx/include/iostreams.hpp>
-#include <hpx/util/unwrap.hpp>
+#include <hpx/util/unwrapped.hpp>
 
 using hpx::lcos::local::dataflow;
 using hpx::lcos::future;
 using hpx::lcos::wait;
-using hpx::util::unwrap;
+using hpx::util::unwrapped;
 
 const double KAPPA = 3.5;
 const double LAMBDA = 4.5;
@@ -128,23 +128,23 @@ void osc_chain( state_type &q , state_type &dpdt )
 
     //state_type dpdt_(N);
     // first row
-    dpdt[0] = dataflow( hpx::launch::async , unwrap(system_first_block()) , q[0] , 
-                        dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+    dpdt[0] = dataflow( hpx::launch::async , unwrapped(system_first_block()) , q[0] , 
+                        dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
         { return (*v)[0]; }) , q[1] ) , 
                         dpdt[0] );
     // middle rows
     for( size_t i=1 ; i<N-1 ; i++ )
     {
-        dpdt[i] = dataflow( hpx::launch::async , unwrap(system_center_block()) , q[i] , 
-                            dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+        dpdt[i] = dataflow( hpx::launch::async , unwrapped(system_center_block()) , q[i] , 
+                            dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
             { return (*v)[v->size()-1]; }) ,
                                       q[i-1] ) , 
-                            dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+                            dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
             { return (*v)[0]; }) , q[i+1] ) ,
                             dpdt[i] );
     }
-    dpdt[N-1] = dataflow( hpx::launch::async , unwrap(system_last_block()) , q[N-1] , 
-                          dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+    dpdt[N-1] = dataflow( hpx::launch::async , unwrapped(system_last_block()) , q[N-1] , 
+                          dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
         { return (*v)[v->size()-1]; }), 
                                     q[N-2] ) , 
                           dpdt[N-1] );
@@ -167,23 +167,23 @@ void osc_chain_gb( state_type &q , state_type &dpdt )
     const size_t N = q.size();
 
     // first row
-    dpdt[0] = dataflow( hpx::launch::async , unwrap(system_first_block()) , q[0] , 
-                        dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+    dpdt[0] = dataflow( hpx::launch::async , unwrapped(system_first_block()) , q[0] , 
+                        dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
         { return (*v)[0]; }) , q[1] ) , 
                         dpdt[0] );
     // middle rows
     for( size_t i=1 ; i<N-1 ; i++ )
     {
-        dpdt[i] = dataflow( hpx::launch::async , unwrap(system_center_block()) , q[i] , 
-                            dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+        dpdt[i] = dataflow( hpx::launch::async , unwrapped(system_center_block()) , q[i] , 
+                            dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
             { return (*v)[v->size()-1]; }) ,
                                       q[i-1] ) , 
-                            dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+                            dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
             { return (*v)[0]; }) , q[i+1] ) ,
                             dpdt[i] );
     }
-    dpdt[N-1] = dataflow( hpx::launch::async , unwrap(system_last_block()) , q[N-1] , 
-                          dataflow( hpx::launch::sync , unwrap([](shared_vec v) 
+    dpdt[N-1] = dataflow( hpx::launch::async , unwrapped(system_last_block()) , q[N-1] , 
+                          dataflow( hpx::launch::sync , unwrapped([](shared_vec v) 
         { return (*v)[v->size()-1]; }), 
                                     q[N-2] ) , 
                           dpdt[N-1] );

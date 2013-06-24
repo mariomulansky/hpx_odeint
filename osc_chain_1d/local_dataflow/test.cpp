@@ -11,7 +11,7 @@
 #include <hpx/hpx_init.hpp>
 #include <hpx/lcos/local/dataflow.hpp>
 #include <hpx/lcos/async.hpp>
-#include <hpx/util/unwrap.hpp>
+#include <hpx/util/unwrapped.hpp>
 #include <hpx/include/iostreams.hpp>
 
 #include <boost/numeric/odeint.hpp>
@@ -29,7 +29,7 @@ using hpx::lcos::wait;
 using hpx::make_ready_future;
 using hpx::lcos::local::dataflow;
 using hpx::async;
-using hpx::util::unwrap;
+using hpx::util::unwrapped;
 
 using boost::numeric::odeint::symplectic_rkn_sb3a_mclachlan;
 
@@ -78,9 +78,9 @@ int hpx_main(boost::program_options::variables_map& vm)
     for( size_t i=0 ; i<M ; ++i )
     {
         q_in[i] = make_ready_future( std::make_shared<dvec>( ) );
-        q_in[i] = dataflow( unwrap(initialize_zero( G )) , q_in[i] );
+        q_in[i] = dataflow( unwrapped(initialize_zero( G )) , q_in[i] );
         p_in[i] = make_ready_future( std::make_shared<dvec>( ) );
-        p_in[i] = dataflow( unwrap(initialize_copy( p_init , i*G , G )) , p_in[i] );
+        p_in[i] = dataflow( unwrapped(initialize_copy( p_init , i*G , G )) , p_in[i] );
     }
 
     std::clog << "init dataflows ready" << std::endl;
