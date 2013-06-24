@@ -5,6 +5,17 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{listings}
+\usepackage{color}
+
+\definecolor{orange}{rgb}{1,0.5,0}
+
+\lstset{language=C++,
+        basicstyle=\ttfamily\footnotesize,
+        keywordstyle=\color{blue}\ttfamily,
+        stringstyle=\color{red}\ttfamily,
+        commentstyle=\color{orange}\ttfamily,
+        morecomment=[l][\color{magenta}]{\#}
+}
 
 \newcommand{\Dt}{\Delta t}
 
@@ -14,6 +25,7 @@
 
 
 \begin{document}
+
 \maketitle
 
 Solving initial value problems (IVP) of ordinary differential equations (ODE) is an every-day problem for scientists an engineers in all subjects.
@@ -94,7 +106,7 @@ The rhs of an ODE with nearest neighbor coupling in the most general form writes
 \begin{equation}
  \dot{\vec x} = \vec f(\vec x):\, x_n = g_n(q_n) + c_{n,l}(q_{n},q_{n-1}) + c_{n,r}(q_{n},q_{n+1}).
 \end{equation} 
-The function $g_n$ defines the local term at site $n$, while the functions $c_{n,1/2}$ represent the couplings to the left and right.
+The function $g_n$ defines the local term at site $n$, while the functions $c_{n,l/r}$ represent the couplings to the left and right.
 For simplicity, we will assume that the rhs functions are identical for all lattice sites, and also the left and right coupling is identical, hence: $g_n \equiv g$ and $c_{n,l} \equiv c_{n,r} \equiv c$.
 Also, we will employ Diriclet boundary conditions employing that $x[-1] = x[N] = 0$.
 Then, the futurized algorithm to compute this function reads:
@@ -175,22 +187,80 @@ The equations of motions for a one-dimensional chain of these oscillators is:
 Hence, the functions from above are set to $g(x) = x^\kappa$ and $c(x,y)=(x-y)^\lambda$.
 This model with integer powers $\kappa$ and $\lambda$ has been studied extensively by theoretical physicists in the context of Hamiltonian Chaos and Chaotic Diffusion~\cite{blabla}.
 Here, we will use non-integer powers $\kappa=2.5$ and $\lambda=3.5$, which makes the system even more computationally demanding.
+As numerical integration scheme we use a fourth order symplectic Runge-Kutta scheme~\cite{mclachlan}.
+The symplectic nature of this scheme preserves the Hamiltonian character of the system and is thus more suitable than a generic Runge-Kutta algorithm.
+However, from a computational point of view this scheme requires the same kind of numerical calulcations (rhs evaluation, vector additions) as described above.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\textwidth]{../osc_chain_1d/plot/marvin_granularity_1024K.pdf}\hfill
+  \caption{Runtime of 100 steps of a system of size $N=1048576$ with 16 Threads for different granularities (data per task).} 
+  \label{fig:granularity_marvin_1024K}
+\end{figure}
+
+To compare the performance of the dataflow driven algorithm based on HPX with a straight forward OpenMP implementation we ran simulations for the model described above with $N$ lattice sites and $N=512\cdot1024$ and $N=1024\cdot1024$.
+We perform $T=100$ time steps with the same initial condition and use the minimal wall time of 10 runs of the simulation.
+This was repeated for several granularities $G$, defined as the amount of data that is processed per parallel task.
+Figure~\ref{fig:granularity_marvin_1024K} shows the run time of the simulation with $N=1024\text{K}$ in dependence of the granularity on 16 Cores of a machine with two XeonE5-2450 (2.1 GHz) processors.
+The HPX dataflow implementation shows a strong dependence on the granularity with a clear minimum.
+The position of the minimum depends on the actual computations involved, so it is very important to identify this optimum to obtain the highest possible performance.
+The OpenMP implementation, in contrast, exhibits only a weak dependence on the granularity so identifying the optimum is not as crucial there.
+However, for the performance results below we always used the optimal granularity, hence the minimum of the graph in Figure~\ref{fig:granularity_marvin_1024K}.
+
+Finally, we compare the performance of the OpenMP and the HPX dataflow implementation by measuring their respective speed-ups over a straight forward serial implementation of the simulation.
+Figure~\ref{fig:marvin_scaling} shows these speed-ups when using 2,4,8 and 16 Cores of the same dual Xeon machine as above for system sizes $N=512\text{K}$ (a) and $N=1024\text{K}$ (b).
+In both cases we find almost identical results for the OpenMP and the HPX dataflow implementation.
+Both implementations show a very good scaling behavior with a speed-up of 14 on 16 threads.
+This shows that the scheduling mechanism and work distribution of HPX is indeed highly competitive with OpenMP.
+Note again, that this simulation is very favorable for OpenMP as all threads receive identical workloads and hence global synchronization should not be too disadvantageous.
 
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../plot/marvin_scaling_512.pdf}\hfill
-  \caption{Performance with 512x512 lattice sites.} 
-  \label{fig:scaling_marvin_512}
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_512K.pdf}\hfill
+  \caption{Performance with 512K lattice sites.} 
+  \label{fig:scaling_marvin_512K}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../plot/marvin_scaling_1024.pdf}\hfill
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_1024K.pdf}\hfill
+  \caption{Performance with 1024K lattice sites.} 
+  \label{fig:scaling_marvin_1024K}
+ \end{subfigure}
+ \caption{Strong scaling for a system of size $N=524288$ (a) and $N=1048576$ (b) on a 2xXeonE5-2450 with 16 Cores (no Hyperthreading). 
+ %The black curve (``HPX ldf gb'') represents the performance of a simulation using HPX local dataflows with additional global barriers.
+ }
+ \label{fig:marvin_scaling}
+\end{figure}
+
+One-dimensional systems with $10^6$ sites, as simulated above, are indeed important, e.g.\ for studying the thermodynamic limit.
+However, a more common application for parallelization are studies of two-dimensional systems, where a lattice of $N\times N$ sites for a moderate value of $N=1024$ already consists of about $10^6$ sites.
+We also implemented a OpenMP and HPX version of a 2D lattice simulation of the above model.
+Note, that in two dimensions one has additional coupling terms.
+Here, we chose a quadratic lattice where each oscillator is coupled to its four nearest neighbors.
+Although the rhs function gets more cumbersome to implement, the algorithm is conceptually the same and it is rather straight forward how to generalize the code above for a 2D simulation.
+The only detail that should be mentioned is that we divided the 2D lattice into rectangular stripes of some width $G$ and length $N$ and distributed those stripes across the available cores.
+One could also divide the lattice into quadratic regions, but we don't expect any significant influence on the performance from this choice.
+
+Again, we compare the run-time of the OpenMP and HPX parallelization in terms of the speed up over a single-core run.
+The result is shown in Figure~\ref{fig:marvin_scaling2D} for $N=512$ (a) and $N=1024$ (b).
+As before, we find very good scaling of the parallel codes, but this time the HPX dataflow implementation is slightly faster for 16 Cores.
+
+\begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/marvin_scaling_512.pdf}\hfill
+  \caption{Performance with 512x512 lattice sites.} 
+  \label{fig:scaling_marvin2D_512}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/marvin_scaling_1024.pdf}\hfill
   \caption{Performance with 1024x1024 lattice sites.} 
-  \label{fig:scaling_marvin_1024}
+  \label{fig:scaling_marvin2D_1024}
  \end{subfigure}
  \caption{Strong scaling for a system of size 512x512 (a) and 1024x1024(b) on a 2xXeonE5-2450 with 16 Cores (no Hyperthreading). The black curve (``HPX ldf gb'') represents the performance of a simulation using HPX local dataflows with additional global barriers.}
- \label{fig:marvin_scaling}
+ \label{fig:marvin_scaling2D}
 \end{figure}
 
 \end{document}

@@ -70,7 +70,8 @@ struct resize_impl< state_type , state_type >
         x1.resize( x2.size() );
         for( size_t i=0 ; i < x2.size() ; ++i )
         {
-            x1[i] = dataflow( unwrap([]( shared_vec v2 )
+            x1[i] = dataflow( hpx::launch::async,
+                              unwrap([]( shared_vec v2 )
                               {
                                   shared_vec tmp = std::allocate_shared<dvecvec>( std::allocator<dvecvec>() );
                                   tmp->resize( v2->size() );

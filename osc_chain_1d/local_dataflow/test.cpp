@@ -72,8 +72,6 @@ int hpx_main(boost::program_options::variables_map& vm)
 
     state_type q_in( M );
     state_type p_in( M );
-    state_type q_out( M );
-    state_type p_out( M );
 
     for( size_t i=0 ; i<M ; ++i )
     {

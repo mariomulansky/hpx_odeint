@@ -1,7 +1,7 @@
-/* stronlgy nonlinear hamiltonian lattice in 2d */
+/* stronlgy nonlinear hamiltonian lattice in 1d */
 
-#ifndef LATTICE2D_HPP
-#define LATTICE2D_HPP
+#ifndef SYSTEM_HPP
+#define SYSTEM_HPP
 
 #include <vector>
 #include <cmath>
@@ -73,7 +73,7 @@ struct osc_chain {
             dpdt[i] -= coupling_lr;
             last_i = i;
         }
-        dpdt[N-1] = -signed_pow( q[i] , m_kap-1 )
+        dpdt[N-1] = -signed_pow( q[N-1] , m_kap-1 )
             + coupling_lr;
     }
 

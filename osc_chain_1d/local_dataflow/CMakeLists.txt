@@ -18,8 +18,8 @@ add_hpx_executable(test
     DEPENDENCIES iostreams
 )
 
-# add_hpx_executable(perf
-#     ESSENTIAL
-#     SOURCES perf.cpp
-#     DEPENDENCIES iostreams
-# )
+add_hpx_executable(perf
+    ESSENTIAL
+    SOURCES perf.cpp
+    DEPENDENCIES iostreams
+)

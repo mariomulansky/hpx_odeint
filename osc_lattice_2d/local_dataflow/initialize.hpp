@@ -33,12 +33,11 @@ struct initialize_zero
 
 struct initialize_copy
 {
-    //const dvecvec &m_data; // why no reference here?
-    const dvecvec m_data;
+    const dvecvec &m_data; // why no reference here?
     const size_t m_index;
     const size_t m_len;
 
-    initialize_copy( const dvecvec data , const size_t index , const size_t len )
+    initialize_copy( const dvecvec &data , const size_t index , const size_t len )
         : m_data( data ) , m_index( index ) , m_len( len )
     { }
 

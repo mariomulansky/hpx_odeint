@@ -54,7 +54,7 @@ int main( int argc , char* argv[] )
     std::cout << "Size: " << N << " with " << block_size << " elements per thread" << " and " << steps << " steps." << std::endl;
 
     //omp_set_schedule( omp_sched_dynamic , block_size );
-    omp_set_schedule( omp_sched_static , block_size );
+    omp_set_schedule( omp_sched_static , 1 );
 
     // initialize
     state_type p_init( M , dvec( G , 0.0 ) );

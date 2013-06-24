@@ -5,6 +5,7 @@
 \usepackage{caption}
 \usepackage{subcaption}
 
+\newcommand{\Dt}{\Delta t}
 
 % Title Page
 \title{HPX \& odeint -- dataflow-driven ODE integration}
@@ -13,6 +14,41 @@
 
 \begin{document}
 \maketitle
+
+Suppose you need to find a numerical solution of an initial value problem (IVP) of an ordinary differential equation (ODE) given by:
+\begin{equation}
+ \dot{\vec x}(t) = \vec f(\vec x(t), t), \qquad \vec x(t=0) = \vec x_0.
+\end{equation} 
+Here, $\vec x \in \mathbb{R}^N$ is the state variable in the $N$-dimensional configuration space.
+To find an approximation of the trajectory $\vec x(t)$ one first introduces a time discretization with some small step size $\Delta t$.
+The numerical trajectory is then given by a sequence of points $\vec x_n$ that approximate the true trajectory at the points $t_n=n\cdot \Dt$, hence: $\vec x_n\approx\vec x(t_n)$.
+The most simple, and also most common class of methods are the so called explicit single-step methods, which includes the Runge-Kutta methods, for example.
+A single step method consists of a mapping $G(\Dt)$ that calculates the next point of the trajectory $\vec x_{n+1}$ only using one previous approximation $\vec x_n$ and a step-size $\Dt$:
+\begin{equation}
+ \vec x_{n+1} = G(\Dt) \vec x_n.
+\end{equation}
+Exemplarily, for the most trivial Euler method the mapping $G_\Dt$ is defined as:
+\begin{equation}
+ G(\Dt):\, \vec x_{n+1} = \vec x_n + \Dt \vec f(\vec x_n,t_n).
+\end{equation}
+The Euler method has order 1 only, which means the error of the numerical approximation has the order 2, thus $|x(\Dt) - x_1|\sim \Dt^2$.
+Typically, one requires more accuracy and thus relies on methods with higher order.
+The most important class of higher order schemes are the Runge-Kutta methods. 
+These methods consist of $s$ stages where the rhs of the ODE is evaluated.
+The mapping $G$ for a generic Runge-Kutta scheme with $s$ stages writes as:
+\begin{equation}
+ \begin{aligned}
+    G_\Dt:\, \vec x_{n+1} &= \vec x_n + \Dt \sum_{k=1}^{s} b_k \vec y_k \\
+    \text{where}\quad \vec y_k &= f( \vec x_n + \Dt \sum_{m=1}^k a_{k,m} \vec y_m , t_n+c_k\Dt).
+   \end{aligned}
+\end{equation}
+The parameter sets $a_{k,m}$, $b_k$ and $c_k$ have to be chosen such that the result $x_{n+1}$ is indeed an approximation of some order $p$.
+We note that for simplicity we here restrict the study to methods with constant step-size~$\Dt$, but the method below can also be applied to embedded Runge-Kutta schemes required for step size control.
+To obtain an approximation of a whole trajectory from $t=0\dots t_\text{end}$ one applies the above one-step algorithm subsequently to obtain a descretized approximate trajectory $\vec x_0,\vec x_1,\vec x_2,\dots,\vec x_T$ with $T=t_\text{end}/\Dt$.
+
+Trying to parallelize the algorithm one immediately realizes that no two time steps can be computed in parallel because of its dependence on the previous state.
+So no parallelization in the time domain is possible and one has to compute the trajectory points one by one: $\vec x_0\rightarrow\vec x_1 \rightarrow \vec x_2 \dots$.
+However, given a high dimensional system one can divide the state $\vec x$ into regions and thus distribute the work on many cores/processors/machines.
 
 We compare the performance of OpenMP (OMP) with an HPX dataflow (HPX df) and HPX local dataflow (HPX ldf) implementation.
 The benchmark is a 2D lattice simulation with $N\times N$ sites where $N=512,1024,2048$.

@@ -10,7 +10,7 @@
 
 #include "system.hpp"
 #include "omp_algebra.hpp"
-#incldue "resize.hpp"
+#include "resize.hpp"
 
 using boost::numeric::odeint::symplectic_rkn_sb3a_mclachlan;
 
@@ -46,7 +46,7 @@ int main( int argc , char* argv[] )
     if( argc > 4 )
         dt = atof( argv[4] );
 
-    std::cout << "Size: " << N << " with " << block_size << " elements per thread" << " and " << steps << " steps." std::endl;
+    std::cout << "Size: " << N << " with " << block_size << " elements per thread" << " and " << steps << " steps." << std::endl;
 
     //omp_set_schedule( omp_sched_dynamic , block_size );
     omp_set_schedule( omp_sched_static , block_size );
@@ -77,17 +77,11 @@ int main( int argc , char* argv[] )
     {
     auto_cpu_timer timer( 3 , "%w sec\n");
 
-    stepper_type stepper;
-    stepper.do_step( sys , std::make_pair( std::ref(q) , std::ref(p) ) , 
-                     0.0 , dt );
-
-
-    // integrate_n_steps( stepper_type() , 
-    //                    sys , 
-    //                    std::make_pair( std::ref(q) , std::ref(p) ) , 
-    //                    0.0 , dt , steps );
-    //                    //std::ref(obs) );
-
+    integrate_n_steps( stepper_type() , 
+                       sys , 
+                       std::make_pair( std::ref(q) , std::ref(p) ) , 
+                       0.0 , dt , steps );
+                       //std::ref(obs) );
     }
 
     // std::cout << "Time: " << elapsed << std::endl;
