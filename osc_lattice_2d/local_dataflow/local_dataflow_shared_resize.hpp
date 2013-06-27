@@ -12,12 +12,12 @@
 #include <boost/numeric/odeint/util/same_size.hpp>
 
 #include <hpx/lcos/local/dataflow.hpp>
-#include <hpx/util/unwrap.hpp>
+#include <hpx/util/unwrapped.hpp>
 
 using hpx::lcos::future;
 using hpx::make_ready_future;
 using hpx::lcos::local::dataflow;
-using hpx::util::unwrap;
+using hpx::util::unwrapped;
 
 typedef std::vector< double > dvec;
 typedef std::vector< dvec > dvecvec;
@@ -70,9 +70,9 @@ struct resize_impl< state_type , state_type >
         x1.resize( x2.size() );
         for( size_t i=0 ; i < x2.size() ; ++i )
         {
-            x1[i] = dataflow( unwrap([]( shared_vec v2 )
+            x1[i] = dataflow( unwrapped([]( shared_vec v2 )
                               {
-                                  shared_vec tmp = std::allocate_shared<dvecvec>( std::allocator<dvecvec>() );
+                                  shared_vec tmp = std::make_shared<dvecvec>( );
                                   tmp->resize( v2->size() );
                                   for( size_t n=0 ; n<v2->size() ; ++n )
                                       (*tmp)[n].resize( (*v2)[n].size() );

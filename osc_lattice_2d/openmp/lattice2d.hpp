@@ -45,7 +45,7 @@ struct lattice2d {
     { }
 
     template< class StateIn , class StateOut >
-    void operator()( const StateIn &q , StateOut &dpdt )
+    inline void operator()( const StateIn &q , StateOut &dpdt ) const
     {
         // std::cout << "system" << std::endl;
         // q and dpdt are 2d

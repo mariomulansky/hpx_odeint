@@ -11,7 +11,7 @@
 #include <hpx/hpx_init.hpp>
 #include <hpx/lcos/local/dataflow.hpp>
 #include <hpx/lcos/async.hpp>
-#include <hpx/util/unwrap.hpp>
+#include <hpx/util/unwrapped.hpp>
 #include <hpx/include/iostreams.hpp>
 
 #include <boost/numeric/odeint.hpp>
@@ -29,7 +29,7 @@ using hpx::lcos::wait;
 using hpx::make_ready_future;
 using hpx::lcos::local::dataflow;
 using hpx::async;
-using hpx::util::unwrap;
+using hpx::util::unwrapped;
 
 using boost::numeric::odeint::symplectic_rkn_sb3a_mclachlan;
 using boost::numeric::odeint::integrate_n_steps;
@@ -93,10 +93,10 @@ int hpx_main(boost::program_options::variables_map& vm)
         {
             q[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
             q[i] = dataflow( hpx::launch::async ,
-                             unwrap(initialize_zero( G , N2 )) , q[i] );
+                             unwrapped(initialize_zero( G , N2 )) , q[i] );
             p[i] = make_ready_future( std::allocate_shared<dvecvec>( std::allocator<dvecvec>() ) );
             p[i] = dataflow( hpx::launch::async ,
-                             unwrap(initialize_copy( p_init , i*G , G )) , p[i] );
+                             unwrapped(initialize_copy( p_init , i*G , G )) , p[i] );
         }
 
         wait( q );
