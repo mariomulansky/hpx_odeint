@@ -90,20 +90,22 @@ int main( int argc , char* argv[] )
 #pragma omp parallel for schedule( runtime )
         for( size_t i=0 ; i<M ; i++ )
         {
-            q[i] = dvec( G , 0.0 );
+            q[i] = dvec( p_init[i].size() , 0.0 );
             p[i] = p_init[i];
         }
 
-        //std::cout << "# Initial energy: " << system.energy( q , p ) << std::endl;
+        //std::clog << "# Initial energy: " << system.energy( q , p ) << std::endl;
     
         cpu_timer timer;
 
         integrate_n_steps( stepper_type() , 
                            system , 
-                           std::make_pair( std::ref(q) , std::ref(p) ) , 
+                           std::make_pair( boost::ref(q) , boost::ref(p) ) , 
                            0.0 , dt , steps );
 
         double run_time = static_cast<double>(timer.elapsed().wall)/(1000*1000*1000);
+
+        //std::clog << "# Final energy: " << system.energy( q , p ) << std::endl;
 
         if( n > 1 )
         {
