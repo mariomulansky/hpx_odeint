@@ -32,7 +32,7 @@ typedef symplectic_rkn_sb3a_mclachlan< state_type ,
                                        nested_omp_algebra< range_algebra > > stepper_type;
 
 const double KAPPA = 3.3;
-const double LAMBDA = 4.7
+const double LAMBDA = 4.7;
 const double beta = 1.0;
 
 int main( int argc , char* argv[] )
@@ -74,7 +74,7 @@ int main( int argc , char* argv[] )
             std::uniform_real_distribution<double> distribution( 0.0 );
             std::mt19937 engine( i ); // Mersenne twister MT19937
             auto generator = std::bind( distribution , engine );
-            std::generate( p_init[i].begin()+ , p_init[i].begin()+ , generator );
+            std::generate( p_init[i].begin() , p_init[i].end() , generator );
         }
     
         state_type q( M );

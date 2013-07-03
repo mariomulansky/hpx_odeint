@@ -31,8 +31,8 @@ typedef symplectic_rkn_sb3a_mclachlan< state_type ,
                                        double ,
                                        nested_omp_algebra< range_algebra > > stepper_type;
 
-const double KAPPA = 3.5;
-const double LAMBDA = 4.5;
+const double KAPPA = 3.3;
+const double LAMBDA = 4.7;
 const double beta = 1.0;
 
 int main( int argc , char* argv[] )
