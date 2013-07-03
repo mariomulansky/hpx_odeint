@@ -1,0 +1,168 @@
+\documentclass[10pt]{scrartcl}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{orange}{rgb}{1,0.5,0}
+
+\lstset{language=C++,
+        basicstyle=\ttfamily\footnotesize,
+        keywordstyle=\color{blue}\ttfamily,
+        stringstyle=\color{red}\ttfamily,
+        commentstyle=\color{orange}\ttfamily,
+        morecomment=[l][\color{magenta}]{\#}
+}
+
+\newcommand{\Dt}{{\Delta t}}
+\newcommand{\sgn}{\operatorname{sgn}}
+
+% Title Page
+\title{Futurization of the Parallel Adams-Bashforth Method}
+\author{}
+
+\begin{document}
+\maketitle
+
+Here, we apply the futurization technique described above to a numerical algorithm dedicated to solve Ordinary Differential Equations (ODEs): the Parallel Adams Bashforth (PAB) method.
+The PAB method belongs to the family of Adams-Bashforth algorithms, which are linear step methods.
+Linear step methods computes one iteration of the solution $y_{n+1}$ plus some intermediate stages results $\tilde y_{n+1,1},\dots,\tilde y_{n+1,k}$ using the previous results $y_{n}, \tilde y_{n,i}$.
+Combining the solution and intermediate stages into one matrix $Y_n$, a general linear method writes as:
+\begin{equation}
+ Y_{n+1} = G_\Dt Y_n,
+\end{equation} 
+where $G_\Dt$ is a linear map iterating the solution by a time step $\Dt$.
+One example are the famous Runge-Kutta methods, where $G^\text{RK}_\Dt$ only uses the actual state $y_n$ and no previous intermediate stages $\tilde y_{n,i}$.
+For the PAB methods, all previous intermediate stage results are used to calculate the new iteration plus the new intermediate results.
+The order of the numerical PAB method with $k$ stages is $k+1$, that means the error of the approximate trajectory vanishes as $\sim \Dt^{k+2}$.
+The crucial point that gives the Paralell Adams-Bashforth methods their name is that they involve independent calculations that can be performed in parallel.
+%
+\begin{figure}[t]
+ \begin{subfigure}[b]{0.5\textwidth}
+  \includegraphics[width=\textwidth]{pab_scheme.png}
+  % pab_scheme.png: 0x0 pixel, 0dpi, 0.00x0.00 cm, bb=
+  \caption{PAB execution scheme~\cite{Rauber_Ruenger}.}
+  \label{fig:pab_scheme}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.5\textwidth}
+  \includegraphics[width=\textwidth]{../plot/speed_up_lyra.pdf}
+  % pab_scheme.png: 0x0 pixel, 0dpi, 0.00x0.00 cm, bb=
+  \caption{Speed up for $k=3$ and $k=4$.}
+  \label{fig:speed_up}
+ \end{subfigure}
+\end{figure}
+%
+This is shown in Figure~\ref{fig:pab_scheme}, where the execution scheme of the PAB method is sketched (graph taken from~\cite{Rauber_Ruenger}).
+From there, one sees that the function evaluations $f(y_{n,i})$ as well as the computation of $y_{n+1,i}$ can be performed in parallel for all $i=1\dots k$.
+Hence, provided one runs on at least $k$ cores, one can obtain a solution of order $k+1$ in the same run-time as the Euler method which gives only a solution of order $1$.
+
+A traditional way of implementing this parallelization would be to just start new threads for each of the function evaluation and vector computation, then wait for all the results, and continue execution.
+Here, however, we will follow a different approach where we only define the data dependencies using the futurization technique above.
+With those data dependencies, the HPX scheduler will automatically perform the different computations in parallel when possible.
+
+Therefore, we implemented the PAB algorithm in a straight forward way.
+The core of the algorithm hence is:
+\begin{lstlisting}
+template< typename System , typename State >
+void pab_step( System &sys , State &in , double t , State &out , double dt )
+{
+  sys( in , m_derivs[0] , t );
+  for( size_t n=0 ; n<Stages-1 ; ++n )
+  {
+    // compute derivative
+    sys( m_states[n] , m_derivs[n+1] , t );
+  }
+  for( size_t n=0 ; n<Stages-1 ; ++n )
+  {
+    // calculates states
+    vector_add<Stages+2>( m_states[n] , in , 
+			  m_derivs[0] , m_derivs[1] , m_derivs[2] , 
+			  pab_coeff(n,dt) )
+  }
+  vector_add<Stages+2>( out , in , 
+			m_derivs[0] , m_derivs[1] , m_derivs[2] , 
+			pab_coeff(Stages-1,dt) );
+}
+\end{lstlisting}
+%
+The function \lstinline+vector_add+ is a templated function with the signature
+\begin{lstlisting}
+template< typename State >
+void vector_add<5>( State &s1 , State &s2 , State &s3 , 
+		    State &s4 , State &s5 , pab_coeff coeff );
+\end{lstlisting}
+%
+In a serial implementation, the state would be represented by a \lstinline+vector<double>+.
+The vector addition, examplarily shown for $k=3$ which requires \lstinline+vector_add<5>+, would look like:
+\begin{lstlisting}
+typedef vector< double > dvec;
+
+template<>
+void vector_add<5>( dvec &s1 , dvec &s2 , dvec &s3 , 
+		    dvec &s4 , dvec &s5 , pab_coeff coeff )
+{
+  for( size_t n=0 ; n<s1.size() ; ++n )
+  {
+    s1[n] = coeff[0]*s1[n] + coeff[1]*s2[n] + coeff[2]*s3[n] 
+	    coeff[3]*s4[n] + coeff[4]*s5[n];
+  }
+}
+\end{lstlisting}
+%
+When futurizing this code, the representation of the state would change to \lstinline+future< vector<double> >+.
+A futurized version of \lstinline+vector_add+ just wraps around the above implementation using the \lstinline+hpx::local::dataflow+:
+\begin{lstlisting}
+typedef future<dvec> fut_state;
+
+template<>
+void vector_add<5>( fut_state &s1 , fut_state &s2 , fut_state &s3 
+		    fut_state &s4 , fut_state &s5 , pab_coeff coeff )
+{
+  s1 = dataflow( hpx::launch::async , 
+		 unwrapped( [pab_coeff]( dvec x1 , dvec x2 , dvec x3 ,
+					 dvec x4 , dvec x5 ) -> dvec  
+                            {
+			      vector_add<5>( x1 , x2 , x3 , x4 , x5 , pab_coeff );
+                              return x1;
+                            } ) ,
+                 s1 , s2 , s3 , s4 , s5 );
+}
+\end{lstlisting}
+As one sees, this just uses the serial version from above, but called from inside a \lstinline+dataflow+ construct returning a new future on the result.
+Hence the actual computation will happen as soon as all results (from the input futures) are ready and it will be executed by the HPX scheduler on any available core.
+From the data dependency structure of the algorithm, which involves independent computations, it then follows that these vector additions are executed in parallel.
+The same technique can be applied for implementing a futurized version of the system function.
+Assuming that \lstinline+rhs( dvec &x , dvec &dxdt , double t )+ calculates the rhs for given \lstinline+vector<double>+, the futurized version is:
+%
+\begin{lstlisting}
+void rhs( const fut_state &x , fut_state &dxdt , double t )
+{
+    dxdt = dataflow( hpx::launch::async , 
+		     unwrapped( rhs_serial() ) ,  
+		     x , dxdt , t );
+}
+\end{lstlisting}
+
+With these simple transformations of the code we obtained a parallelized version of the PAB method.
+Note, that we \emph{did not have to change the actual algorithm!}
+The implementation of the PAB method remains the same, we only changed the underlying computations, i.e.\ the vector addition and the rhs evaluation.
+This shows the strength of the futurization technique, because it allows to add parallelization on existing algorithms, provided that the algorithms intrinsically consist of independent calculations, such as the PAB method.
+Figure~\ref{fig:speed_up} shows the speed up of the futurized parallelization over sequential execution for stage number $k=3$ and $k=4$ when using 2,3 or 4 cores.
+
+\subsection*{Remarks}
+The actual implementation is more complicated, because one has to use \lstinline+shared_ptr+ in order to avoid unnecessary copies of the data.
+So the state is represented by \lstinline+future< shared_ptr< vector<double> > >+.
+Also, I have to implement memory allocation for \lstinline+future<dvec>+, but I neglected this for here.
+
+In principle, I could go up to $k=8$, but for this I would need to increase \lstinline+HPX_LIMITS+, which currently produces compile errors.
+
+\begin{thebibliography}{10}
+ \bibitem{Rauber_Ruenger}
+ Rauber, Thomas and R\"unger, Gudula, \textit{Execution Schemes for Parallel Adams Methods} in Euro-Par 2004 Parallel Processing, Springer Berlin Heidelberg (2004)
+\end{thebibliography}
+
+
+\end{document}

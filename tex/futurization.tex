@@ -1,4 +1,4 @@
-\documentclass[a4wide,10pt]{scrartcl}
+\documentclass[10pt]{scrartcl}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
@@ -18,6 +18,7 @@
 }
 
 \newcommand{\Dt}{\Delta t}
+\newcommand{\sgn}{\operatorname{sgn}}
 
 % Title Page
 \title{Futurization of ODE integration}
@@ -27,6 +28,8 @@
 \begin{document}
 
 \maketitle
+
+\section{Introduction}
 
 Solving initial value problems (IVP) of ordinary differential equations (ODE) is an every-day problem for scientists an engineers in all subjects.
 In the following we will show how typical numerical algorithms for finding approximate solutions of such IVP can be parallelized using a dataflow approach.
@@ -59,6 +62,8 @@ Many systems, however, are somewhere in between these two extreme cases.
 Imagine, for example, a problem with nearest neighbor coupling, a very common case in lattice dynamics simulations, then the computation of $\vec y^m$ requires the neighboring components as well: $\vec x^{m-1}$, $\vec x^{m}$ and $\vec x^{m+1}$.
 With conventional methods, like OpenMP or MPI, it is not possible, or at least highly cumbersome, to incorporate the dependencies into the parallelized code.
 Therefore, a global synchronization is enforced after every rhs evaluation and vector addition step, as shown in Figure~\ref{fig:glob_sync}.
+
+\section{Dataflow Driven Implementation}
 
 Here, we present a new way of parallelizing the algorithm based on dataflow semantics, that will automatically ensure the correct dependencies between the sub-regions of $\vec x^m$.
 A natural way of representing the sub-regions $\vec x^m$ in a C++ program is a vector of vectors \lstinline+vector< vector< double > > x+, where \lstinline+x[m]+ represents the $N/M$ dimensional sub-regions $\vec x^m$.
@@ -179,88 +184,209 @@ The difference in the execution flow of these two methods is visualized in Figur
 It is clear that for the case of identical computation for all sub-regions ($g_n$ and $c_n$ independent of $n$) and in a homogeneous multi-core environment, the punishment of a global synchronization at each step is not expected to be of significant impact.
 However, we still compare the new futurization approach based on HPX with a standard OpenMP implementation for exactly such a case and we will find that the HPX code is competitive even in this setting highly favorable for OpenMP, as shown in Figure~\ref{fig:marvin_scaling}.
 
+\section{Performance}
+
+\subsection{Homogeneous Work Distribution}
+
 As example system for our performance comparison we choose a Hamiltonian system of nonlinearly coupled anharmonic oscillators.
-The equations of motions for a one-dimensional chain of these oscillators is:
+The equations of motions for a one-dimensional chain of such oscillators is:
 \begin{equation}
- \dot p_n = -|q_n|^\kappa - |q_n-q_{n-1}|^\lambda - |q_n-q_{n+1}|^\lambda.
+ \dot p_n = -|q_n|^\kappa\sgn(q_n) - |q_n-q_{n-1}|^\lambda\sgn(q_n-q_{n-1}) - |q_n-q_{n+1}|^\lambda\sgn(q_n-q_{n+1}).
 \end{equation} 
-Hence, the functions from above are set to $g(x) = x^\kappa$ and $c(x,y)=(x-y)^\lambda$.
+Hence, the functions from above are given as $g(x) = |x|^\kappa\sgn(x)$ and $c(x,y)=|x-y|^\lambda\sgn(x-y)$, where $\sgn(x)$ is sign of $x$.
 This model with integer powers $\kappa$ and $\lambda$ has been studied extensively by theoretical physicists in the context of Hamiltonian Chaos and Chaotic Diffusion~\cite{blabla}.
-Here, we will use non-integer powers $\kappa=2.5$ and $\lambda=3.5$, which makes the system even more computationally demanding.
+Here, we will use (arbitrary) non-integer powers $\kappa=2.3$ and $\lambda=3.7$, which makes the system even more computationally demanding.
 As numerical integration scheme we use a fourth order symplectic Runge-Kutta scheme~\cite{mclachlan}.
 The symplectic nature of this scheme preserves the Hamiltonian character of the system and is thus more suitable than a generic Runge-Kutta algorithm.
 However, from a computational point of view this scheme requires the same kind of numerical calulcations (rhs evaluation, vector additions) as described above.
 
 \begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=0.5\textwidth]{../osc_chain_1d/plot/marvin_granularity_1024K.pdf}\hfill
-  \caption{Runtime of 100 steps of a system of size $N=1048576$ with 16 Threads for different granularities (data per task).} 
-  \label{fig:granularity_marvin_1024K}
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_granularity.pdf}
+  \caption{Influence of granularity with 16 Threads.}
+  \label{fig:granularity_ariel_1024K}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_flops.pdf}
+  \caption{FLOP/Cycle on many cores.}
+ \end{subfigure}
+ \caption{(a) Runtime of 100 steps of a system of size $N=1048576$ with 16 Threads for different granularities (data per task) using the Intel Compiler. (b) Performance in FLOP per CPU cycle per Core for the g++ and Intel Compiler.} 
+ \label{fig:ariel_flops}
 \end{figure}
 
-To compare the performance of the dataflow driven algorithm based on HPX with a straight forward OpenMP implementation we ran simulations for the model described above with $N$ lattice sites and $N=512\cdot1024$ and $N=1024\cdot1024$.
-We perform $T=100$ time steps with the same initial condition and use the minimal wall time of 10 runs of the simulation.
-This was repeated for several granularities $G$, defined as the amount of data that is processed per parallel task.
-Figure~\ref{fig:granularity_marvin_1024K} shows the run time of the simulation with $N=1024\text{K}$ in dependence of the granularity on 16 Cores of a machine with two XeonE5-2450 (2.1 GHz) processors.
-The HPX dataflow implementation shows a strong dependence on the granularity with a clear minimum.
-The position of the minimum depends on the actual computations involved, so it is very important to identify this optimum to obtain the highest possible performance.
-The OpenMP implementation, in contrast, exhibits only a weak dependence on the granularity so identifying the optimum is not as crucial there.
-However, for the performance results below we always used the optimal granularity, hence the minimum of the graph in Figure~\ref{fig:granularity_marvin_1024K}.
-
-Finally, we compare the performance of the OpenMP and the HPX dataflow implementation by measuring their respective speed-ups over a straight forward serial implementation of the simulation.
-Figure~\ref{fig:marvin_scaling} shows these speed-ups when using 2,4,8 and 16 Cores of the same dual Xeon machine as above for system sizes $N=512\text{K}$ (a) and $N=1024\text{K}$ (b).
-In both cases we find almost identical results for the OpenMP and the HPX dataflow implementation.
-Both implementations show a very good scaling behavior with a speed-up of 14 on 16 threads.
-This shows that the scheduling mechanism and work distribution of HPX is indeed highly competitive with OpenMP.
-Note again, that this simulation is very favorable for OpenMP as all threads receive identical workloads and hence global synchronization should not be too disadvantageous.
+To compare the performance of the dataflow driven algorithm based on HPX with a straight forward OpenMP implementation we ran simulations for the model described above with $N$ lattice sites.
+%and $N=512\cdot1024$ and $N=1024\cdot1024$.
+Our main test system is dual processor machine with two Xeon E5-2690 Sandy Bridge processors.
+For compilation we use the GNU compiler 4.7.3 as well as the Intel compiler 13.0.1.
+As explained above, for each computation the chain is divided into chunks of size $G=N/M$ and distributed across the cores, hence each core is assigned the same workload.
+First, we checked the influence of the chunk size $G$ on the performance.
+In Figure~\ref{fig:granularity_ariel_1024K} we show the runtime of 100 time steps of the simulation for a chain of $N=1024\cdot1024$ oscillators, using the Intel compiler.
+For the HPX code one clearly sees a minimum for a data amount of 32K/task, while the OpenMP code shows almost no dependence on the granularity.
+Therefor, one should always test for the optimal granularity setting when using HPX.
+Moreover, the results in Figure~\ref{fig:granularity_ariel_1024K} suggest that the OpenMP version is about 10\% faster than HPX.
+We verified this in a second study where we measured the floating point operations per second (FLOP/s) with help of the \lstinline+likwid+ tool~\cite{likwid}.
+We normalized this performance number to the clock speed of the processor and obtained the numbers of floating point operations per cycle (FLOP/cycle).
+This is necessary to make runs on different numbers of cores comparable, because the Xeon machine increases the CPU clock speed if only a few cores are utilized.
+The results are shown in Figure~\ref{fig:ariel_flops}.
+One first notes that for the GNU compiler the performance of OpenMP and HPX is identical with a perfect scaling up to 16 cores.
+However, the Intel compiler gives almost twice the performance as the GNU compiler, and there we indeed see that the OpenMP code is about 10\% faster than HPX.
+But again, the performance of each core remains constant when going from one to 16 cores for both the OpenMP and the HPX implementation.
+Hence we found that both the HPX and the OpenMP code for both the GNU and the Intel Compiler exhibits perfect scaling.
+However, from here on we will focus on the performance obtained using the Intel Compiler, as it generates gives significantly faster code.
 
 \begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_scaling_1024K.pdf}\hfill
+  \caption{Performance with 1024K lattice sites.} 
+  \label{fig:scaling_ariel_1024K}
+ \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
   \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_512K.pdf}\hfill
   \caption{Performance with 512K lattice sites.} 
   \label{fig:scaling_marvin_512K}
  \end{subfigure}
- \begin{subfigure}[b]{0.49\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_1024K.pdf}\hfill
-  \caption{Performance with 1024K lattice sites.} 
-  \label{fig:scaling_marvin_1024K}
- \end{subfigure}
- \caption{Strong scaling for a system of size $N=524288$ (a) and $N=1048576$ (b) on a 2xXeonE5-2450 with 16 Cores (no Hyperthreading). 
- %The black curve (``HPX ldf gb'') represents the performance of a simulation using HPX local dataflows with additional global barriers.
+ \caption{Strong scaling for a system of size $N=1048576$ on a 2xXeonE5-2690 (a) and $N=524288$ on a 2xXeonE5-2450 (b). The diamonds (``HPX gb'') represents the performance of a simulation using HPX with additional global barriers. All curves are normalized to the single core performance.
  }
- \label{fig:marvin_scaling}
+ \label{fig:scaling1D}
 \end{figure}
 
-One-dimensional systems with $10^6$ sites, as simulated above, are indeed important, e.g.\ for studying the thermodynamic limit.
-However, a more common application for parallelization are studies of two-dimensional systems, where a lattice of $N\times N$ sites for a moderate value of $N=1024$ already consists of about $10^6$ sites.
-We also implemented a OpenMP and HPX version of a 2D lattice simulation of the above model.
-Note, that in two dimensions one has additional coupling terms.
-Here, we chose a quadratic lattice where each oscillator is coupled to its four nearest neighbors.
-Although the rhs function gets more cumbersome to implement, the algorithm is conceptually the same and it is rather straight forward how to generalize the code above for a 2D simulation.
-The only detail that should be mentioned is that we divided the 2D lattice into rectangular stripes of some width $G$ and length $N$ and distributed those stripes across the available cores.
-One could also divide the lattice into quadratic regions, but we don't expect any significant influence on the performance from this choice.
+This is again visualized in Figure~\ref{fig:scaling1D}.
+There, we show the efficiency of the parallelization defined as $\text{Eff} = \tau_1/(\tau_C\cdot C) \cdot100\%$, where $\tau_1$ is the run time of the simulation on a single core, and $\tau_C$ is the run time on $C$ cores.
+Hence, all the graphs in Figure~\ref{fig:scaling1D} are normalized to a single thread run.
+Figure~\ref{fig:scaling_ariel_1024K} shows the results for N=$1024\cdot1024$ oscillators on the XeonE5-2690 machine, while in \ref{fig:scaling_marvin_512K} we used N=$512\cdot1024$ oscillators and performed the simulations on a slower 2xXeonE5-2450 blade.
+Both implementations exhibit almost perfect scaling up to the 16 cores of the dual eight-core processor machines.
+On both machines, the OpenMP code with the Intel compiler and static scheduling gives the fastest results, hence we used these runs as reference defining 100\%.
+One finds that the HPX implementation is about 10\% slower than static OpenMP scheduling, but overtakes the dynamic OpenMP runs when going using all 16 cores.
+The diamonds represent an HPX implementation where global barriers after each rhs computation were added artificially.
+Indeed one finds a severe performance decrease in this case.
+Thus, we find indeed that the HPX implementation benefits greatly from the dataflow driven computation, showing the strength of this concept.
 
-Again, we compare the run-time of the OpenMP and HPX parallelization in terms of the speed up over a single-core run.
-The result is shown in Figure~\ref{fig:marvin_scaling2D} for $N=512$ (a) and $N=1024$ (b).
-As before, we find very good scaling of the parallel codes, but this time the HPX dataflow implementation is slightly faster for 16 Cores.
+\subsection{Inhomogeneous Work Distribution}
+
+The case above represents perfect conditions for OpenMP, as each thread gets assigned the same workload which means that the implicit global barriers of the OpenMP code should not be too important.
+A much more interesting case is when the different tasks represent different workloads.
+Then, the existence of global barriers might significantly decrease the efficiency of the parallelization when the cores with less work have to wait for the rest.
+Such situations can happen frequently in the context of ODE integration, for example when the ODE is obtained from an underlying partial differential equation using an adaptive grid~\cite{?}.
+Another example are studies of heterogeneous systems, e.g.\ studying the transport through a chain of nonlinear oscillators enclosed by linear oscillators to the left and right.
+Also, a system with some parts being connected to a heat bath, as studied extensively in the context of heat transport, gives rise to a heterogeneous system that would create different work loads when parallelizing.
 
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/marvin_scaling_512.pdf}\hfill
-  \caption{Performance with 512x512 lattice sites.} 
-  \label{fig:scaling_marvin2D_512}
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_inhom_granularity.pdf}\hfill
+  \caption{Granularity for inhomogeneous workload.} 
+  \label{fig:inhom_granularity}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/marvin_scaling_1024.pdf}\hfill
-  \caption{Performance with 1024x1024 lattice sites.} 
-  \label{fig:scaling_marvin2D_1024}
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_inhom_512K.pdf}\hfill
+  \caption{Efficiency for inhomogeneous workload.} 
+  \label{fig:inhom_512K}
  \end{subfigure}
- \caption{Strong scaling for a system of size 512x512 (a) and 1024x1024(b) on a 2xXeonE5-2450 with 16 Cores (no Hyperthreading). The black curve (``HPX ldf gb'') represents the performance of a simulation using HPX local dataflows with additional global barriers.}
+ \caption{Influence of the average granularity on the performance (a) and efficiency of the parallelization (b) for the case of inhomogeneous workloads using the Intel compiler on the 2xXeonE5-2450 machine for a chain of size $N=524288$. The granularity was measured using all 16 Cores, with dynamic scheduling for OpenMP.}
+ \label{fig:inhom_1}
+\end{figure}
+
+\begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/comp_hom_inhom_marvin.pdf}
+  \caption{Comparison of workload distributions.} 
+  \label{fig:comp_hom_inhom_marvin}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.51\textwidth}
+  \centering
+  \includegraphics[width=0.95\textwidth]{../osc_chain_1d/plot/scaling_inhom_1024K_128K.pdf}
+  \caption{Different problem sizes.} 
+  \label{fig:inhom_1024K}
+ \end{subfigure}
+ \caption{Panel (a) shows a comparison of the homogeneous and inhomogeneous workload distribution for OpenMP with dynamic scheduling and HPX on 16 Cores of the XeonE5-2450 machine.. We plot the performance in terms of simulation steps per second for a system size $N=524288$. Panel (b) shows the parallel efficiency for a system of size $N=1048576$ on the XeonE5-2690 machine, and $N=131072$ on the XeonE5-2450.}
+ \label{fig:inhom_2}
+\end{figure}
+
+Here, we mimic such a situation by dividing the vector $\vec x$ into subregion of different sizes.
+Then, instead of having the same workload for each task, now the amount of data to be processed differs.
+Specifically, we divide the state into $M$ subregions of length $G_m$, where $G_{2k}=G/2$ and $G_{2k+1}=3G/2$ with $G=N/M$.
+Hence, on average every task gets the same workload as above, but now regions with even index have less elements ($G/2$), while those with odd index have more ($3G/2$).
+
+We perform the same study as above for this situation of inhomogeneous workload distribution.
+The results are shown in Figure~\ref{fig:inhom_1}.
+As expected, OpenMP with static scheduling now shows much worse performance, seen in Figure~\ref{fig:inhom_512K}, because the program can not adjust to the fact that some threads finish earlier than others.
+We also notice that the OpenMP code becomes much more sensitive to the granularity, as shown in Figure~\ref{fig:inhom_granularity}, where we show the run time of the simulation on all 16 cores of the  2xXeonE5-2450 machine for a chain of size $N=524288$ and dynamic scheduling for OpenMP.
+Additionally, we already see there that the HPX implementation shows a about 15\% better performance on 16 cores.
+To verify this we again measure the efficiency of the parallelization normalized to the single-core run, as explained above.
+The result is shown in Figure~\ref{fig:inhom_512K}.
+When running on less than eight cores, the OpenMP code is still slightly faster, but for 16 cores HPX takes over and wins by about 10\%.
+This is very similar to the observation with homogeneous workloads, where also HPX was faster than OpenMP with dynamic scheduling, cf.\ Figure~\ref{fig:scaling_marvin_512K}.
+However, now the static scheduling is not an option and thus HPX provides the overall fastest solution, at least for large number of cores.
+
+It is very interesting to note that the HPX implementation is equally efficient for homogeneous and inhomogeneous workload distributions.
+This is emphasized in Figure~\ref{fig:comp_hom_inhom_marvin}, where we plot the performance in terms of simulation steps per seconds for homogeneous and inhomodeneous workload distributions.
+While the two graphs for HPX lie exactly on top of each other, the OpenMP performance drops slightly for the inhomogeneous version.
+Hence, the dataflow driven implementation with HPX allows to use the available computational power maximally efficiently also in cases of inhomogeneous workloads.
+Figure~\ref{fig:inhom_1024K} shows the efficiency of the parallelization for an inhomogeneous workload for a larger system with $N=1048576$ on the 2xXeonE5-2690 machine and a smaller system with $N=131072$ on the 2xXeonE5-2450.
+While for larger systems the OpenMP code becomes more efficient, at smaller system sizes, i.e.\ less computational workload, the advantage of HPX becomes more pronounces.
+Hence, we find that HPX very well suited for inhomogeneous situations even outperforming Intel's OpenMP implementation when running on 16 Cores.
+This is not surprising, because it is exactly when the dataflow driven parallelization with the absence of global barriers is superior, nicely verified in these simulations.
+
+\subsection{2D Simulations}
+
+One-dimensional systems with $10^6$ sites, as simulated above, are indeed important, e.g.\ for studying the thermodynamic limit.
+However, a more common application for parallelization are studies of higher dimensional systems.
+Hence, we also implemented an OpenMP and HPX version of a 2D lattice simulation of the above model.
+Note, that in two dimensions one has additional coupling terms.
+Here, we chose a quadratic lattice where each oscillator is coupled to its four nearest neighbors.
+Although the rhs function gets more cumbersome to implement, the algorithm is conceptually the same and it is rather straight forward how to generalize the code above for a 2D simulation.
+The only detail that should be mentioned is that we divided the 2D lattice into rectangular stripes of some width $G$ and length $N$ and distributed those stripes across the available cores.
+One could also divide the lattice into quadratic regions, but this is not expected to have a significant influence on the performance.
+
+Again, we compare the run-time of the OpenMP and HPX parallelization.
+In Figure~\ref{fig:strong_scaling2D} we show the strong scaling results on the Intel XeonE5-2690 machine using the Intel compiler.
+As above, we used the OpenMP single-core performance to represent 100\% in these graphs.
+Like before, we find very good scaling of the parallel codes, with a slightly better performance of the OpenMP implementation for most cases.
+However, for the largest case of $N=2048\times2048$ on 16 Cores, the HPX code is slightly faster.
+Figure~\ref{fig:weak_scaling2D} shows the weak scaling of these simulation, again exhibiting almost perfect scaling with about 90\% of the theoretical optimum at 16 threads and a slightly better performance of HPX over OpenMP on 16 threads.
+
+\begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/ariel_strong_scaling.pdf}\hfill
+  \caption{Strong scaling of the 2D simulation.} 
+  \label{fig:strong_scaling2D}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/ariel_weak_scaling.pdf}\hfill
+  \caption{Weak scaling of the 2D simulation.} 
+  \label{fig:weak_scaling2D}
+ \end{subfigure}
+ \caption{Strong (a) and weak (b) scaling for the 2D simulation on the 2xXeonE5-2690 machine using the Intel compiler. In both graphs the results are scaled to the OpenMP single thread performance. For the weak scaling results the data size per thread was fixed to $512\times512$.}
  \label{fig:marvin_scaling2D}
 \end{figure}
+
+\section{Conclusions}
+
+We presented a new technique to parallelize ODE solvers based on the HPX and odeint libraries.
+Our implementation is based on a dataflow driven scheduling as provided by HPX.
+This allows the programmer to specifically define data dependencies, which in the case of ODE integration are manifestations of the coupling terms.
+Having those data dependencies, the scheduler can efficiently distribute the computation as soon as all required data is available.
+Using the highly flexible odeint library, such a dataflow driven parallelization can be implemented without diving into the details of the ODE solver algorithm.
+
+We executed several performance test comparing our new approach with standard OpenMP parallelization.
+For a homogeneous workload, we found that in all cases our implementation exhibits perfect scaling up to the 16 Cores of our dual processor Intel Xeon machines.
+Using the GNU compiler, we found exactly identical performance for our HPX and the OpenMP codes.
+The Intel compiler, however, was able to utilize the Xeon processors more efficiently and produces almost two times faster code than the GNU compiler.
+Furthermore, we find that the Intel's OpenMP implementation with static scheduling always gives the best performance, being about 10\% faster than HPX.
+When using the dynamic scheduling in OpenMP, this changes and we find that the HPX implementation becomes faster than OpenMP when running on 16 cores.
+In a heterogeneous situation, where different threads get assigned different workloads, static scheduling is not an option and we find HPX to beat OpenMP by about 10\% in some of our performance tests.
+This shows the strength of the dataflow driven algorithm where the absence of global barriers allows for a more efficient utilization of the available cores.
+We also showed some performance results for 2D systems, where HPX is again highly competitive, even with slight advantages for large systems and 16 cores.
+We conclude that a dataflow driven ODE integration based on HPX and odeint is a powerful new approach to parallelization.
+Even for cases that favor standard parallelization techniques such as OpenMP, we found competitive performance of our implementation.
+Going to more complex cases with inhomogeneous workloads, the HPX based implementation starts outperforming OpenMP when using eight or more cores in our simulation.
 
 \end{document}
