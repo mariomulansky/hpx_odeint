@@ -1,6 +1,7 @@
-\documentclass[10pt]{scrartcl}
+\documentclass[10pt]{elsarticle}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
+\usepackage{natbib}
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -14,31 +15,82 @@
         keywordstyle=\color{blue}\ttfamily,
         stringstyle=\color{red}\ttfamily,
         commentstyle=\color{orange}\ttfamily,
-        morecomment=[l][\color{magenta}]{\#}
+        morecomment=[l][\color{magenta}]{\#},
+        numbers=left,
+        numberstyle=\tiny,
+        frame=tb,
+        columns=fullflexible,
+        showstringspaces=false
 }
 
+\newcommand{\odeint}{\textsc{odeint}}
 \newcommand{\Dt}{\Delta t}
 \newcommand{\sgn}{\operatorname{sgn}}
 
 % Title Page
 \title{Futurization of ODE integration}
-\author{}
+\author[cct]{Mario Mulansky}
+\ead{mmulansky@cct.lsu.edu}
 
+\author[cct]{Hartmut Kaiser}
+
+\address[cct]{Center for Computation and Technology -- Lousiana State University, Baton Rouge, USA}
 
 \begin{document}
+
+\begin{abstract}
+We present a new approach to parallelization of numerical routines that eliminates the global barriers that are introduced when using standard parallelization techniques.
+We show that our new approach can be readily implemented using the high-level HPX-framework.
+Furthermore, extensive performance studies are presented in terms of simulations of a dynamical system using the \odeint-library, confirming the superiority of our new approach in cases of inhomogeneous workloads.
+\end{abstract}
 
 \maketitle
 
 \section{Introduction}
 
-Solving initial value problems (IVP) of ordinary differential equations (ODE) is an every-day problem for scientists an engineers in all subjects.
+The recent development in High-Performance Computing (HPC) shows a clear tendency towards heterogeneous multi-core architecture with a prospective availability of exaflop machines with hundreds of millions of cores by the end of this decade.
+%~\cite{?}.
+This puts out severe challenges for programmers and library authors in how to efficiently utilize the computational power of such machines by suitable parallelization.
+In this work, we apply a new parallelization technique to the numerical problem of integration of ordinary differential equations (ODEs).
+Solving initial value problems (IVP) of ODEs is an every-day task for scientists and engineers in all subjects.
+Hence providing efficient, parallel code for this task is of fundamental importance  with a wide variety of applications.
+
+Here, we will use a new approach to parallelization, called \emph{futurization}~\cite{Heller_Kaiser_Mulansky_tbp}, which will allow us to eliminate the global barriers in the parallelized code and thus reach a better efficiency of the numerical simulations.
+The parallelization part of our implementation is based on the HPX library, an experimental implementation of the ParalleX execution model~\cite{Kaiser_Brodowicz_Sterling_09}.
+For the numerical algorithm to integrate an ODE we rely on the \odeint\ library, a highly flexible, modern C++ library for solving ODEs~\cite{Ahnert_Mulansky_11}.
+We will compare the performance our new approach with a straight-forward OpenMP version of the same algorithm on different dual-processor multi-core machines.
+
+The article is organized as follows.
+In the next section we shortly introduce the employed libraries HPX and \odeint, as well as the futurization technique.
+Then we outline the parallelization of the numerical simulation in section~\ref{sec:num_ode_int}, and present the performance comparisons in section~\ref{sec:perf}.
+Finally, we end with our concluding remarks.
+
+\subsection{HPX}
+
+\subsection{odeint}
+
+The \odeint\ library is a modern C++ implementation of most of the standard algorithms for numerically solving Ordinary Differential Equations (ODEs)~\cite{Ahnert_Mulansky_11} and recently became part of the Boost library collection~\cite{boost}.
+It is designed in a highly flexible way, which makes it especially useful for the purpose of this paper.
+The fundamental design concept in \odeint\ is the \emph{separation of algorithm and computation}.
+This is realized by using modern C++ techniques such as Generic and Template Metaprogramming~\cite{TemplateMetaprogramming}, hence it provides \emph{compile time flexibility} which ensures optimal run-time performance.
+This flexibility make \odeint\ applicable for a wide range of problems, for example for performing numerical ODE integration with arbitrary precision, which can be realized simply by combining \odeint\ with an arbitrary precision library like MPFR~\cite{mpfr} or Boost.Multiprecision~\cite{boost_multiprecision}.
+Furthermore, it is also possible to introduce parallelization into \odeint\ by simply implementing parallelized computational backends, without needing to re-implement the actual numerical algorithm.
+This is a clear advantage when comparing different parallelization techniques like in this article, because it ensures that the numerical schemes are implemented in exactly the same way and any performance difference is solely induced by the different parallelizations.
+Hence, \odeint\ is the perfect framework for the purpose of this work.
+
+\subsection{Futurization}
+
+\section{Numerical ODE Integration} \label{sec:num_ode_int}
+
+\subsection{Runge-Kutta Algorithms}
+
 In the following we will show how typical numerical algorithms for finding approximate solutions of such IVP can be parallelized using a dataflow approach.
 An IVP of an ODE is defined as:
 \begin{equation}
  \dot{\vec x}(t) = \vec f(\vec x(t), t), \qquad \vec x(t=0) = \vec x_0,
 \end{equation}
 where $\vec x(t) \in \mathbb{R}^N$ is the trajectory in the $N$-dimensional phase space.
-To find a numerical solution of this problem one introduces a time discretization with some step size $\Dt$.
+To find a numerical solution of this problem, one introduces a time discretization with some step size $\Dt$.
 So the numerical solution consists of a sequence of $N$-dimensional points $\vec x_0$, $\vec x_1$, $\vec x_2,\dots$, with $\vec x_n \approx x(n\cdot \Dt)$.
 The most important class of schemes are the Runge-Kutta methods, which are explicit one-step methods that use only the previous point $x_n$ to compute the next iterate $x_{n+1}$.
 The generic explicit Runge-Kutta scheme with $s$ stages writes as:
@@ -52,9 +104,12 @@ The parameter sets $a_{k,m}$, $b_k$ and $c_k$ have to be chosen such that the re
 We note that for simplicity we here restrict the study to methods with constant step-size~$\Dt$, but the method below can also be applied to embedded Runge-Kutta schemes required for step size control.
 To obtain an approximation of a whole trajectory from $t=0\dots t_\text{end}$ one applies the above one-step algorithm subsequently to obtain a descretized approximate trajectory $\vec x_0,\vec x_1,\vec x_2,\dots,\vec x_T$ with $T=t_\text{end}/\Dt$.
 
-Looking at~\eqref{eqn:rk} one see that the computation of a numerical trajectory consists of two tasks: (i) evaluation the rhs of the ODE $\vec f(\vec x,t)$ and (ii) compute the sum of vector-scalar products $\sum b_k \vec y_k$.
-To parallelize these computations one divides the $N$-dimensional vector $\vec x$ into $M$ sub regions $\vec x^{m}\in \mathbb{R}^{N/M}$, with $m=0\dots M-1$, or $\vec y^{m}$ respectively, which are then distributed across cores/processors/machines and are processed in parallel.
-While for the vector addition the computations of the sub regions $\vec y^m$ are completely independent from each other, for the rhs $\vec f(\vec x , t)$ this not the case.
+Looking at~\eqref{eqn:rk} one see that the computation of a numerical trajectory consists of two tasks: (i) evaluating the rhs of the ODE $\vec f(\vec x,t)$ and (ii) computing the sum of vector-scalar products $\sum b_k \vec y_k$.
+This is also true for more sophisticated numerical scheme like controlled Runge-Kutta schemes, multi-step methods or symplectic routines.
+Thus, the parallelization technique described below is not only applicable for the basic Runge-Kutta algorithms~\eqref{eqn:rk}, but can rather be applied to a much broader class of numerical integration schemes.
+
+To parallelize these computations one divides the $N$-dimensional vector $\vec x$ into $M$ sub regions $\vec x^{m}\in \mathbb{R}^{N/M}$ with $m=0\dots M-1$ or $\vec y^{m}$ respectively, which are then distributed across cores/processors/machines and are processed in parallel.
+For the vector addition the computations of the sub regions $\vec y^m$ are completely independent from each other, but for the rhs $\vec f(\vec x , t)$ this not the case.
 The dependency between the regions is given by the specific problem one is confronted with.
 For example, for a system with all-to-all coupling (e.g.\ $N$-body gravitation system), the calculation of one part $\vec y^m$ requires the full state $\vec x^{0}\dots \vec x^{M-1}$.
 For the trivial case of an uncoupled system the calculation of $\vec y^m$ only requires the single component $\vec x^m$.
@@ -63,16 +118,17 @@ Imagine, for example, a problem with nearest neighbor coupling, a very common ca
 With conventional methods, like OpenMP or MPI, it is not possible, or at least highly cumbersome, to incorporate the dependencies into the parallelized code.
 Therefore, a global synchronization is enforced after every rhs evaluation and vector addition step, as shown in Figure~\ref{fig:glob_sync}.
 
-\section{Dataflow Driven Implementation}
+\subsection{Futurized Implementation}
 
-Here, we present a new way of parallelizing the algorithm based on dataflow semantics, that will automatically ensure the correct dependencies between the sub-regions of $\vec x^m$.
+Here we present a new way of parallelizing the algorithm based on dataflow semantics, that will automatically ensure the correct dependencies between the sub-regions of $\vec x^m$.
 A natural way of representing the sub-regions $\vec x^m$ in a C++ program is a vector of vectors \lstinline+vector< vector< double > > x+, where \lstinline+x[m]+ represents the $N/M$ dimensional sub-regions $\vec x^m$.
-For the futurization of the algorithm one first replaces the plain data types by \lstinline+future+ objects holding this data.
-I.e.\ the representation of the regions becomes \lstinline+vector< future< vector< double > > >+, where the future object gets ready as soon as the computation of its data is finished.
+For the futurization of the algorithm one first wraps the plain data into \lstinline+future+ objects holding the data.
+Thus, the representation of the regions becomes \lstinline+vector< future< vector< double > > >+, where the future object gets ready as soon as the computation of its data is finished.
 Having defined this data structure, it is now very simple to implement a vector-vector addition ready for parallel execution.
-Our implementation is based on the \lstinline+hpx::lcos::local::dataflow+ function, that applies a functor to a number of future objects.
-Exemplarily, we show the code that computes the sum of two vectors $\vec z = \alpha_1 \vec x_1 + \alpha_2 \vec x_2$ separately for each sub region so that the individual tasks can be distributed on the available cores by the HPX scheduler.
-\begin{lstlisting}
+Our implementation is based on the \lstinline+hpx::lcos::local::dataflow+ function, that asynchronously applies a functor to a number of future objects.
+Exemplarily, we show the code that computes the sum of two vectors $\vec z = \alpha_1 \vec x_1 + \alpha_2 \vec x_2$ in Listing~\ref{lst:hpx_vectoradd}.
+There, the calculation for each sub region is assigned to individual tasks and thus can be distributed on the available cores by the HPX scheduler.
+\begin{lstlisting}[label=lst:hpx_vectoradd,caption=Futurized vector operation,float=t]
 typedef vector< double > sub_state;
 typedef vector< future< sub_state > > state;
 
@@ -105,6 +161,9 @@ void vector_apply2( state x1 , state x2 , state x3 , Operation op )
 vector_apply( z , x1 , x2 , scale_sum( 0.5 , 0.25 ) );
 \end{lstlisting}
 The \lstinline+dataflow+ function schedules the execution of the vector operation on the sub-region as soon as all required data is available from the previous operation.
+It should be noted that dividing the state into sub-regions in terms of a \lstinline+vector< vector< double > >+ at first looks like a non-continuous memory usage that should lead to a decreased performance.
+However, remember that each of the sub-regions will be processed in a separate task, so each core sees continuous data for its computation and the data structure does not influence the performance of the parallelized code.
+
 Secondly, one has to implement the rhs of the ODE.
 Here, we will chose an autonomous system with nearest neighbor couplings as an example, but the generalization to other dependencies is rather straight forward.
 The rhs of an ODE with nearest neighbor coupling in the most general form writes as:
@@ -114,8 +173,8 @@ The rhs of an ODE with nearest neighbor coupling in the most general form writes
 The function $g_n$ defines the local term at site $n$, while the functions $c_{n,l/r}$ represent the couplings to the left and right.
 For simplicity, we will assume that the rhs functions are identical for all lattice sites, and also the left and right coupling is identical, hence: $g_n \equiv g$ and $c_{n,l} \equiv c_{n,r} \equiv c$.
 Also, we will employ Diriclet boundary conditions employing that $x[-1] = x[N] = 0$.
-Then, the futurized algorithm to compute this function reads:
-\begin{lstlisting}
+The futurized algorithm to compute this function is shown in Listing~\ref{lst:hpx_rhs}.
+\begin{lstlisting}[label=lst:hpx_rhs,caption=Futurized rhs function ,float=t]
 struct rhs_operation
 {
   sub_state operator()( sub_state dxdt , sub_state x , double x_l , double x_r )
@@ -153,13 +212,13 @@ void rhs( state x , state dxdt , double t )
       make_ready_future( 0.0 ) );
 }
 \end{lstlisting}
-Note, how in the function \lstinline+rhs+ dataflows are used to extract the first/last value of the neighboring regions and pass them into the next dataflow.
-That implies that effectively the dataflow for calculating the rhs for the $m$-th sub-region gets input from the regions $m-1$, $m$ and $m+1$.
+Note, how in the function \lstinline+rhs+ dataflows are used to extract the first/last value of the neighboring regions and pass them into the next dataflow (e.g.\ Lines 29,30 in Listing~\ref{lst:hpx_rhs}).
+That implies that the dataflow for calculating the rhs for the $m$-th sub-region gets input from the regions $m-1$, $m$ and $m+1$.
 This is exactly the constitution of the dependencies of the nearest neighbor coupling.
 With this technique, the computation of the rhs function for region $m$ starts as soon as all the required data is available, even if some other sub-regions are not yet computed.
 
-In contrast, an OpenMP implementation of the rhs function could look like:
-\begin{lstlisting}
+In contrast, an OpenMP implementation of the rhs function is exemplarily shown in Listing~\ref{lst:omp_rhs}.
+\begin{lstlisting}[label=lst:omp_rhs,caption=OpenMP rhs function,float=t]
 void rhs( state x , state dxdt , double t )
 {
   const size_t M = x.size();
@@ -180,11 +239,15 @@ void rhs( state x , state dxdt , double t )
 Note that here, the parallel code is only entered when the full state $\vec x$ is calculated completely.
 Additionally, at the end of the parallel OpenMP region a global synchronization takes place.
 The difference in the execution flow of these two methods is visualized in Figure~\ref{??}.
+We also want to emphasize that the HPX and the OpenMP implementation work with the same kernel functor \lstinline+rhs_operation+, defined in the beginning of Listing~\ref{lst:hpx_rhs}.
+This represents an important aspect of futurization, namely that the fundamental numerical computations remain the same, but only get wrapped into future objects that define the data dependencies.
 
 It is clear that for the case of identical computation for all sub-regions ($g_n$ and $c_n$ independent of $n$) and in a homogeneous multi-core environment, the punishment of a global synchronization at each step is not expected to be of significant impact.
-However, we still compare the new futurization approach based on HPX with a standard OpenMP implementation for exactly such a case and we will find that the HPX code is competitive even in this setting highly favorable for OpenMP, as shown in Figure~\ref{fig:marvin_scaling}.
+However, we still compare the new futurization approach based on HPX with a standard OpenMP implementation for exactly such a case and we will find that the HPX code is competitive even in this setting highly favorable for OpenMP, as described next.
+Furthermore, changing the workload to an inhomogeneous setup, where each core gets different amounts of computation, should change this picture in favor of HPX with absent global barriers.
+This will also be addressed in the next part.
 
-\section{Performance}
+\section{Performance} \label{sec:perf}
 
 \subsection{Homogeneous Work Distribution}
 
@@ -194,9 +257,9 @@ The equations of motions for a one-dimensional chain of such oscillators is:
  \dot p_n = -|q_n|^\kappa\sgn(q_n) - |q_n-q_{n-1}|^\lambda\sgn(q_n-q_{n-1}) - |q_n-q_{n+1}|^\lambda\sgn(q_n-q_{n+1}).
 \end{equation} 
 Hence, the functions from above are given as $g(x) = |x|^\kappa\sgn(x)$ and $c(x,y)=|x-y|^\lambda\sgn(x-y)$, where $\sgn(x)$ is sign of $x$.
-This model with integer powers $\kappa$ and $\lambda$ has been studied extensively by theoretical physicists in the context of Hamiltonian Chaos and Chaotic Diffusion~\cite{blabla}.
+This model with integer powers $\kappa$ and $\lambda$ has been studied extensively by theoretical physicists in the context of Hamiltonian Chaos~\cite{Mulansky-Ahnert-Pikovsky-Shepelyansky-11} and Chaotic Diffusion~\cite{Mulansky_Pikovksy_12,mulansky2013energy,Mulansky_phd_12}.
 Here, we will use (arbitrary) non-integer powers $\kappa=2.3$ and $\lambda=3.7$, which makes the system even more computationally demanding.
-As numerical integration scheme we use a fourth order symplectic Runge-Kutta scheme~\cite{mclachlan}.
+As the numerical integrator we use a fourth order symplectic Runge-Kutta scheme~\cite{McLachlan_95}.
 The symplectic nature of this scheme preserves the Hamiltonian character of the system and is thus more suitable than a generic Runge-Kutta algorithm.
 However, from a computational point of view this scheme requires the same kind of numerical calulcations (rhs evaluation, vector additions) as described above.
 
@@ -204,7 +267,7 @@ However, from a computational point of view this scheme requires the same kind o
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
   \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_granularity.pdf}
-  \caption{Influence of granularity with 16 Threads.}
+  \caption{Influence of granularity.}
   \label{fig:granularity_ariel_1024K}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
@@ -224,7 +287,7 @@ As explained above, for each computation the chain is divided into chunks of siz
 First, we checked the influence of the chunk size $G$ on the performance.
 In Figure~\ref{fig:granularity_ariel_1024K} we show the runtime of 100 time steps of the simulation for a chain of $N=1024\cdot1024$ oscillators, using the Intel compiler.
 For the HPX code one clearly sees a minimum for a data amount of 32K/task, while the OpenMP code shows almost no dependence on the granularity.
-Therefor, one should always test for the optimal granularity setting when using HPX.
+Therefore, one should always test for the optimal granularity setting when using HPX.
 Moreover, the results in Figure~\ref{fig:granularity_ariel_1024K} suggest that the OpenMP version is about 10\% faster than HPX.
 We verified this in a second study where we measured the floating point operations per second (FLOP/s) with help of the \lstinline+likwid+ tool~\cite{likwid}.
 We normalized this performance number to the clock speed of the processor and obtained the numbers of floating point operations per cycle (FLOP/cycle).
@@ -270,21 +333,21 @@ Thus, we find indeed that the HPX implementation benefits greatly from the dataf
 The case above represents perfect conditions for OpenMP, as each thread gets assigned the same workload which means that the implicit global barriers of the OpenMP code should not be too important.
 A much more interesting case is when the different tasks represent different workloads.
 Then, the existence of global barriers might significantly decrease the efficiency of the parallelization when the cores with less work have to wait for the rest.
-Such situations can happen frequently in the context of ODE integration, for example when the ODE is obtained from an underlying partial differential equation using an adaptive grid~\cite{?}.
+Such situations can happen frequently in the context of ODE integration, for example when the ODE is obtained from an underlying partial differential equation using an adaptive grid, a situation one face rather typically in hydrodynamic simulations.
 Another example are studies of heterogeneous systems, e.g.\ studying the transport through a chain of nonlinear oscillators enclosed by linear oscillators to the left and right.
-Also, a system with some parts being connected to a heat bath, as studied extensively in the context of heat transport, gives rise to a heterogeneous system that would create different work loads when parallelizing.
+Also, a system with some parts being connected to a heat bath, as studied extensively in the context of heat transport~\cite{Lepri_Livi_Politi_03}, gives rise to a heterogeneous system that would create different work loads when parallelizing.
 
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
   \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_inhom_granularity.pdf}\hfill
-  \caption{Granularity for inhomogeneous workload.} 
+  \caption{Granularity, inhomogeneous workload.} 
   \label{fig:inhom_granularity}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
   \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_inhom_512K.pdf}\hfill
-  \caption{Efficiency for inhomogeneous workload.} 
+  \caption{Efficiency, inhomogeneous workload.} 
   \label{fig:inhom_512K}
  \end{subfigure}
  \caption{Influence of the average granularity on the performance (a) and efficiency of the parallelization (b) for the case of inhomogeneous workloads using the Intel compiler on the 2xXeonE5-2450 machine for a chain of size $N=524288$. The granularity was measured using all 16 Cores, with dynamic scheduling for OpenMP.}
@@ -304,7 +367,7 @@ Also, a system with some parts being connected to a heat bath, as studied extens
   \caption{Different problem sizes.} 
   \label{fig:inhom_1024K}
  \end{subfigure}
- \caption{Panel (a) shows a comparison of the homogeneous and inhomogeneous workload distribution for OpenMP with dynamic scheduling and HPX on 16 Cores of the XeonE5-2450 machine.. We plot the performance in terms of simulation steps per second for a system size $N=524288$. Panel (b) shows the parallel efficiency for a system of size $N=1048576$ on the XeonE5-2690 machine, and $N=131072$ on the XeonE5-2450.}
+ \caption{Panel (a) shows a comparison of the homogeneous and inhomogeneous workload distribution for OpenMP with dynamic scheduling and HPX on 16 Cores of the XeonE5-2450 machine. We plot the performance in terms of simulation steps per second for a system size $N=524288$. Panel (b) shows the parallel efficiency for a system of size $N=1048576$ on the XeonE5-2690 machine, and $N=131072$ on the XeonE5-2450.}
  \label{fig:inhom_2}
 \end{figure}
 
@@ -322,10 +385,10 @@ To verify this we again measure the efficiency of the parallelization normalized
 The result is shown in Figure~\ref{fig:inhom_512K}.
 When running on less than eight cores, the OpenMP code is still slightly faster, but for 16 cores HPX takes over and wins by about 10\%.
 This is very similar to the observation with homogeneous workloads, where also HPX was faster than OpenMP with dynamic scheduling, cf.\ Figure~\ref{fig:scaling_marvin_512K}.
-However, now the static scheduling is not an option and thus HPX provides the overall fastest solution, at least for large number of cores.
+However, now the static scheduling is not an option and thus HPX provides the overall fastest solution, at least for large numbers of cores.
 
 It is very interesting to note that the HPX implementation is equally efficient for homogeneous and inhomogeneous workload distributions.
-This is emphasized in Figure~\ref{fig:comp_hom_inhom_marvin}, where we plot the performance in terms of simulation steps per seconds for homogeneous and inhomodeneous workload distributions.
+This is emphasized in Figure~\ref{fig:comp_hom_inhom_marvin}, where we plot the performance in terms of simulation steps per seconds for homogeneous and inhomogeneous workload distributions.
 While the two graphs for HPX lie exactly on top of each other, the OpenMP performance drops slightly for the inhomogeneous version.
 Hence, the dataflow driven implementation with HPX allows to use the available computational power maximally efficiently also in cases of inhomogeneous workloads.
 Figure~\ref{fig:inhom_1024K} shows the efficiency of the parallelization for an inhomogeneous workload for a larger system with $N=1048576$ on the 2xXeonE5-2690 machine and a smaller system with $N=131072$ on the 2xXeonE5-2450.
@@ -335,21 +398,14 @@ This is not surprising, because it is exactly when the dataflow driven paralleli
 
 \subsection{2D Simulations}
 
-One-dimensional systems with $10^6$ sites, as simulated above, are indeed important, e.g.\ for studying the thermodynamic limit.
+One-dimensional systems with $10^6$ sites, as simulated above, are indeed important, for example when exploring the thermodynamic limit.
 However, a more common application for parallelization are studies of higher dimensional systems.
 Hence, we also implemented an OpenMP and HPX version of a 2D lattice simulation of the above model.
 Note, that in two dimensions one has additional coupling terms.
 Here, we chose a quadratic lattice where each oscillator is coupled to its four nearest neighbors.
-Although the rhs function gets more cumbersome to implement, the algorithm is conceptually the same and it is rather straight forward how to generalize the code above for a 2D simulation.
+Although the rhs function gets more cumbersome to implement, the algorithm is conceptually the same and it is rather straight forward, how the above code is generalized to a 2D simulation.
 The only detail that should be mentioned is that we divided the 2D lattice into rectangular stripes of some width $G$ and length $N$ and distributed those stripes across the available cores.
 One could also divide the lattice into quadratic regions, but this is not expected to have a significant influence on the performance.
-
-Again, we compare the run-time of the OpenMP and HPX parallelization.
-In Figure~\ref{fig:strong_scaling2D} we show the strong scaling results on the Intel XeonE5-2690 machine using the Intel compiler.
-As above, we used the OpenMP single-core performance to represent 100\% in these graphs.
-Like before, we find very good scaling of the parallel codes, with a slightly better performance of the OpenMP implementation for most cases.
-However, for the largest case of $N=2048\times2048$ on 16 Cores, the HPX code is slightly faster.
-Figure~\ref{fig:weak_scaling2D} shows the weak scaling of these simulation, again exhibiting almost perfect scaling with about 90\% of the theoretical optimum at 16 threads and a slightly better performance of HPX over OpenMP on 16 threads.
 
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
@@ -368,25 +424,36 @@ Figure~\ref{fig:weak_scaling2D} shows the weak scaling of these simulation, agai
  \label{fig:marvin_scaling2D}
 \end{figure}
 
-\section{Conclusions}
+Again, we compare the run-time of the OpenMP and HPX parallelization.
+In Figure~\ref{fig:strong_scaling2D} we show the strong scaling results on the Intel XeonE5-2690 machine using the Intel compiler.
+As above, we used the OpenMP single-core performance to represent 100\% in these graphs.
+Like before, we find very good scaling of the parallel codes, with a slightly better performance of the OpenMP implementation for most cases.
+However, for the largest case of $N=2048\times2048$ on 16 Cores, the HPX code is slightly faster.
+Figure~\ref{fig:weak_scaling2D} shows the weak scaling of these simulation, again exhibiting almost perfect scaling with about 90\% of the theoretical optimum at 16 threads and a slightly better performance of HPX over OpenMP on 16 threads.
 
-We presented a new technique to parallelize ODE solvers based on the HPX and odeint libraries.
+
+\section{Conclusions} \label{sec:conc}
+
+We presented a new technique to parallelize ODE solvers based on the HPX and odeint libraries, namely by futurization.
 Our implementation is based on a dataflow driven scheduling as provided by HPX.
 This allows the programmer to specifically define data dependencies, which in the case of ODE integration are manifestations of the coupling terms.
 Having those data dependencies, the scheduler can efficiently distribute the computation as soon as all required data is available.
-Using the highly flexible odeint library, such a dataflow driven parallelization can be implemented without diving into the details of the ODE solver algorithm.
+Using the highly flexible odeint library, the futurization technique can be implemented quite easily by providing suitable computation backends without requiring to re-implement the actual numerical algorithms.
 
 We executed several performance test comparing our new approach with standard OpenMP parallelization.
 For a homogeneous workload, we found that in all cases our implementation exhibits perfect scaling up to the 16 Cores of our dual processor Intel Xeon machines.
 Using the GNU compiler, we found exactly identical performance for our HPX and the OpenMP codes.
-The Intel compiler, however, was able to utilize the Xeon processors more efficiently and produces almost two times faster code than the GNU compiler.
+The Intel compiler, however, was able to utilize the Xeon processors more efficiently and produced almost two times faster code than the GNU compiler.
 Furthermore, we find that the Intel's OpenMP implementation with static scheduling always gives the best performance, being about 10\% faster than HPX.
 When using the dynamic scheduling in OpenMP, this changes and we find that the HPX implementation becomes faster than OpenMP when running on 16 cores.
 In a heterogeneous situation, where different threads get assigned different workloads, static scheduling is not an option and we find HPX to beat OpenMP by about 10\% in some of our performance tests.
-This shows the strength of the dataflow driven algorithm where the absence of global barriers allows for a more efficient utilization of the available cores.
-We also showed some performance results for 2D systems, where HPX is again highly competitive, even with slight advantages for large systems and 16 cores.
+This shows the strength of the dataflow driven, futurized algorithm where the absence of global barriers allows for a more efficient utilization of the available cores.
+We also showed some performance results for 2D systems, where HPX is again highly competitive, even exhibiting slight advantages for large systems on 16 cores.
 We conclude that a dataflow driven ODE integration based on HPX and odeint is a powerful new approach to parallelization.
 Even for cases that favor standard parallelization techniques such as OpenMP, we found competitive performance of our implementation.
-Going to more complex cases with inhomogeneous workloads, the HPX based implementation starts outperforming OpenMP when using eight or more cores in our simulation.
+Going to more complex cases with inhomogeneous workloads, the HPX based implementation starts outperforming OpenMP when fully utilizing all available cores.
+
+\bibliographystyle{unsrt}
+\bibliography{articles}
 
 \end{document}
