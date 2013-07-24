@@ -14,6 +14,15 @@
  copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+/* 
+   the coefficients are the zeros of the shifted Legendre polynomials.
+   They are calculated with the following Mathematica code:
+
+roots D[LegendreP[k, 2x-1]]=0
+
+where k = Stages-1.
+
+*/
 
 #ifndef BOOST_NUMERIC_ODEINT_STEPPER_DETAIL_PARALLEL_ADAMS_BASHFORTH_COEFFICIENTS_HPP_INCLUDED
 #define BOOST_NUMERIC_ODEINT_STEPPER_DETAIL_PARALLEL_ADAMS_BASHFORTH_COEFFICIENTS_HPP_INCLUDED
@@ -121,6 +130,26 @@ public:
         (*this)[6] = static_cast< Value >(1);
     }
 };
+
+template< class Value >
+class parallel_adams_bashforth_coefficients< Value , 8 > : public boost::array< Value , 8 >
+{
+public:
+    parallel_adams_bashforth_coefficients( void )
+        : boost::array< Value , 8 >()
+    {
+        // exact expressions are ugly, use decimals
+        (*this)[0] = static_cast<Value>(2);
+        (*this)[1] = static_cast<Value>(2.0-0.06412992574519669233127712);
+        (*this)[2] = static_cast<Value>(2.0-0.20414990928342884892774463);
+        (*this)[3] = static_cast<Value>(2.0-0.39535039104876056561567137);
+        (*this)[4] = static_cast<Value>(3.0) - (*this)[1];
+        (*this)[5] = static_cast<Value>(3.0) - (*this)[2];
+        (*this)[6] = static_cast<Value>(3.0) - (*this)[3];
+        (*this)[6] = static_cast<Value>(1.0);
+    }
+};
+
 
 } // detail
 } // odeint

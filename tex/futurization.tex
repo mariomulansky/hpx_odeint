@@ -32,9 +32,13 @@
 \author[cct]{Mario Mulansky}
 \ead{mmulansky@cct.lsu.edu}
 
+\author[fau]{Thomas Heller}
+
 \author[cct]{Hartmut Kaiser}
 
 \address[cct]{Center for Computation and Technology -- Lousiana State University, Baton Rouge, USA}
+
+\address[fau]{Friedrich-Alexander University Erlangen-Nuremberg, Germany}
 
 \begin{document}
 
@@ -216,6 +220,23 @@ Note, how in the function \lstinline+rhs+ dataflows are used to extract the firs
 That implies that the dataflow for calculating the rhs for the $m$-th sub-region gets input from the regions $m-1$, $m$ and $m+1$.
 This is exactly the constitution of the dependencies of the nearest neighbor coupling.
 With this technique, the computation of the rhs function for region $m$ starts as soon as all the required data is available, even if some other sub-regions are not yet computed.
+
+\begin{figure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{parallelization_global.png}
+  \caption{Parallelization with global barriers.}
+  \label{fig:par_glob_bar}
+ \end{subfigure}
+ \begin{subfigure}[b]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{parallelization_dfo.png}
+  \caption{Parallelization by futurization.}
+  \label{fig:par_fut}
+ \end{subfigure}
+ \caption{Comparison of the execution flow using OpenMP parallelization which introduces global barriers (a) and the new futurization technique that accounts for the actual data dependencies (b).} 
+ \label{fig:parallelization}
+\end{figure}
 
 In contrast, an OpenMP implementation of the rhs function is exemplarily shown in Listing~\ref{lst:omp_rhs}.
 \begin{lstlisting}[label=lst:omp_rhs,caption=OpenMP rhs function,float=t]

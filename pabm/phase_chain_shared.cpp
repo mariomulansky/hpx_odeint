@@ -5,7 +5,7 @@
 #include <memory>
 #include <algorithm>
 
-#define HPX_LIMIT 10
+#define HPX_LIMIT 15
 
 #include <hpx/hpx.hpp>
 #include <hpx/hpx_init.hpp>
@@ -47,7 +47,7 @@ using boost::numeric::odeint::integrate_n_steps;
 
 const double GAMMA = 1.2;
 
-typedef parallel_adams_bashforth_stepper< 4 , 
+typedef parallel_adams_bashforth_stepper< 8 , 
                                           state_type , double , state_type , double , 
                                           local_dataflow_algebra< range_algebra >
                                           > pab_stepper_type;
@@ -101,15 +101,19 @@ int hpx_main(boost::program_options::variables_map& vm)
     state_type x_out = make_ready_future( std::make_shared<dvec>( N ) );
 
     pab_stepper_type stepper;
-    //rk_stepper_type stepper;
+    // rk_stepper_type stepper;
     // for some reason this is necessary
     wait( x );
     wait( x_out );
 
     hpx::cout << (boost::format("%f\n") % ((*(x.get()))[0])) << hpx::flush;
 
-    stepper.do_step( rhs , x , 0.0 , dt );
+    stepper.do_step( rhs , x , 0.0 , x_out , dt );
     wait( x );
+    wait( x_out );
+    for( size_t n=0 ; n<stepper.m_states.size() ; ++n )
+        wait( stepper.m_states[n].m_v );
+    std::swap( x , x_out );
 
     hpx::util::high_resolution_timer timer;
     
