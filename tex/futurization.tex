@@ -224,13 +224,14 @@ With this technique, the computation of the rhs function for region $m$ starts a
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{parallelization_global.png}
+  \includegraphics[width=0.95\textwidth]{par_global.pdf}
+  %{parallelization_global.png}
   \caption{Parallelization with global barriers.}
   \label{fig:par_glob_bar}
- \end{subfigure}
+ \end{subfigure}\vline
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{parallelization_dfo.png}
+  \includegraphics[width=0.95\textwidth]{par_dfo.pdf}\vspace{1em}
   \caption{Parallelization by futurization.}
   \label{fig:par_fut}
  \end{subfigure}
@@ -287,13 +288,13 @@ However, from a computational point of view this scheme requires the same kind o
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_granularity.pdf}
+  \includegraphics[width=\textwidth]{ariel_granularity.pdf}
   \caption{Influence of granularity.}
   \label{fig:granularity_ariel_1024K}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_flops.pdf}
+  \includegraphics[width=\textwidth]{ariel_flops.pdf}
   \caption{FLOP/Cycle on many cores.}
  \end{subfigure}
  \caption{(a) Runtime of 100 steps of a system of size $N=1048576$ with 16 Threads for different granularities (data per task) using the Intel Compiler. (b) Performance in FLOP per CPU cycle per Core for the g++ and Intel Compiler.} 
@@ -323,13 +324,13 @@ However, from here on we will focus on the performance obtained using the Intel 
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/ariel_scaling_1024K.pdf}\hfill
+  \includegraphics[width=\textwidth]{ariel_scaling_1024K.pdf}\hfill
   \caption{Performance with 1024K lattice sites.} 
   \label{fig:scaling_ariel_1024K}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_512K.pdf}\hfill
+  \includegraphics[width=\textwidth]{marvin_scaling_512K.pdf}\hfill
   \caption{Performance with 512K lattice sites.} 
   \label{fig:scaling_marvin_512K}
  \end{subfigure}
@@ -361,13 +362,13 @@ Also, a system with some parts being connected to a heat bath, as studied extens
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_inhom_granularity.pdf}\hfill
+  \includegraphics[width=\textwidth]{marvin_inhom_granularity.pdf}\hfill
   \caption{Granularity, inhomogeneous workload.} 
   \label{fig:inhom_granularity}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/marvin_scaling_inhom_512K.pdf}\hfill
+  \includegraphics[width=\textwidth]{marvin_scaling_inhom_512K.pdf}\hfill
   \caption{Efficiency, inhomogeneous workload.} 
   \label{fig:inhom_512K}
  \end{subfigure}
@@ -378,13 +379,13 @@ Also, a system with some parts being connected to a heat bath, as studied extens
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_chain_1d/plot/comp_hom_inhom_marvin.pdf}
+  \includegraphics[width=\textwidth]{comp_hom_inhom_marvin.pdf}
   \caption{Comparison of workload distributions.} 
   \label{fig:comp_hom_inhom_marvin}
  \end{subfigure}
  \begin{subfigure}[b]{0.51\textwidth}
   \centering
-  \includegraphics[width=0.95\textwidth]{../osc_chain_1d/plot/scaling_inhom_1024K_128K.pdf}
+  \includegraphics[width=0.95\textwidth]{scaling_inhom_1024K_128K.pdf}
   \caption{Different problem sizes.} 
   \label{fig:inhom_1024K}
  \end{subfigure}
@@ -431,13 +432,13 @@ One could also divide the lattice into quadratic regions, but this is not expect
 \begin{figure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/ariel_strong_scaling.pdf}\hfill
+  \includegraphics[width=\textwidth]{ariel_strong_scaling.pdf}\hfill
   \caption{Strong scaling of the 2D simulation.} 
   \label{fig:strong_scaling2D}
  \end{subfigure}
  \begin{subfigure}[b]{0.49\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{../osc_lattice_2d/plot/ariel_weak_scaling.pdf}\hfill
+  \includegraphics[width=\textwidth]{ariel_weak_scaling.pdf}\hfill
   \caption{Weak scaling of the 2D simulation.} 
   \label{fig:weak_scaling2D}
  \end{subfigure}
@@ -473,6 +474,11 @@ We also showed some performance results for 2D systems, where HPX is again highl
 We conclude that a dataflow driven ODE integration based on HPX and odeint is a powerful new approach to parallelization.
 Even for cases that favor standard parallelization techniques such as OpenMP, we found competitive performance of our implementation.
 Going to more complex cases with inhomogeneous workloads, the HPX based implementation starts outperforming OpenMP when fully utilizing all available cores.
+
+\section*{Acknowledgements}
+
+M.M.\ acknowledges financial support from the German Academic Exchange Foundation (DAAD) and thanks the Center of Computation and Technology for its hospitality.
+We thank M.~Camarena for creating the graphs.
 
 \bibliographystyle{unsrt}
 \bibliography{articles}
