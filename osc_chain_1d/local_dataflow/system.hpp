@@ -16,8 +16,8 @@
 #include <hpx/util/unwrapped.hpp>
 
 using hpx::lcos::local::dataflow;
-using hpx::lcos::future;
-using hpx::lcos::wait;
+using hpx::lcos::shared_future;
+using hpx::lcos::wait_all;
 using hpx::util::unwrapped;
 
 const double KAPPA = 3.5;
@@ -44,7 +44,7 @@ double signed_pow( double x , double k )
 
 typedef std::vector< double > dvec;
 typedef std::shared_ptr< dvec > shared_vec;
-typedef std::vector< future< shared_vec > > state_type;
+typedef std::vector< shared_future< shared_vec > > state_type;
 
 struct system_first_block
 {
@@ -188,7 +188,7 @@ void osc_chain_gb( state_type &q , state_type &dpdt )
                                     q[N-2] ) , 
                           dpdt[N-1] );
     // global barrier
-    wait( dpdt );
+    wait_all( dpdt );
 
 }
 

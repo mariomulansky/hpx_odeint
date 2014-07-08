@@ -6,7 +6,7 @@
 #include <hpx/util/unwrapped.hpp>
 
 using hpx::lcos::local::dataflow;
-using hpx::lcos::future;
+using hpx::lcos::shared_future;
 using hpx::util::unwrapped;
 
 struct local_dataflow_algebra

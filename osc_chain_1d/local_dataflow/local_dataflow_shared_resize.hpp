@@ -14,14 +14,14 @@
 #include <hpx/lcos/local/dataflow.hpp>
 #include <hpx/util/unwrapped.hpp>
 
-using hpx::lcos::future;
+using hpx::lcos::shared_future;
 using hpx::make_ready_future;
 using hpx::lcos::local::dataflow;
 using hpx::util::unwrapped;
 
 typedef std::vector< double > dvec;
 typedef std::shared_ptr< dvec > shared_vec;
-typedef std::vector< future< shared_vec > > state_type;
+typedef std::vector< shared_future< shared_vec > > state_type;
 
 namespace boost {
 namespace numeric {

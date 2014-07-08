@@ -23,9 +23,9 @@
 #include "initialize.hpp"
 #include "system.hpp"
 
-using hpx::lcos::future;
+using hpx::lcos::shared_future;
 using hpx::find_here;
-using hpx::lcos::wait;
+using hpx::lcos::wait_all;
 using hpx::make_ready_future;
 using hpx::lcos::local::dataflow;
 using hpx::async;
@@ -36,7 +36,7 @@ using boost::numeric::odeint::integrate_n_steps;
 
 typedef std::vector< double > dvec;
 typedef std::shared_ptr< dvec > shared_vec;
-typedef std::vector< future< shared_vec > > state_type;
+typedef std::vector< shared_future< shared_vec > > state_type;
 
 typedef symplectic_rkn_sb3a_mclachlan< state_type ,
                                        state_type ,
@@ -84,8 +84,8 @@ int hpx_main(boost::program_options::variables_map& vm)
             p[i] = dataflow( unwrapped(initialize_copy( p_init , i*G , G )) , p[i] );
         }
 
-        wait( q );
-        wait( p );
+        wait_all( q );
+        wait_all( p );
 
         hpx::util::high_resolution_timer timer;
 
@@ -95,8 +95,8 @@ int hpx_main(boost::program_options::variables_map& vm)
 
         //hpx::cout << "dataflow generation ready\n" << hpx::flush;
 
-        wait( q );
-        wait( p );
+        wait_all( q );
+        wait_all( p );
 
         double run_time = timer.elapsed();
 
